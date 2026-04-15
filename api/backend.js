@@ -1,12 +1,11 @@
 import { kv } from '@vercel/kv';
 
-// Bárbarh incluída no grupo Estudos Tributários
 const GRUPOS_SERVIDORES = {
   "Estudos Tributários":["Jeane", "Marcia", "Vanessa", "Cléia", "Bárbarh"],
   "Processos Fiscais":["Wagner", "Neuma", "Maria", "Viviene"]
 };
 
-// ================= FERIADOS (PALMAS, TO E NACIONAIS) =================
+// ================= FERIADOS =================
 const FERIADOS_PALMAS_FIXOS =["01-01", "03-19", "04-21", "05-01", "05-20", "09-07", "09-08", "10-05", "10-12", "11-02", "11-15", "12-25"];
 const FERIADOS_MOVEIS =["2025-03-03", "2025-03-04", "2025-04-18", "2025-06-19", "2026-02-16", "2026-02-17", "2026-04-03", "2026-06-04"];
 
@@ -15,7 +14,6 @@ function isFeriado(dateStr) {
   return FERIADOS_PALMAS_FIXOS.includes(mmdd) || FERIADOS_MOVEIS.includes(dateStr);
 }
 
-// ================= LÓGICA DE DIAS ÚTEIS E STATUS =================
 function calcularDiasUteis(startStr, endStr) {
     let start = new Date(startStr + 'T12:00:00Z');
     let end = new Date(endStr + 'T12:00:00Z');
@@ -61,7 +59,6 @@ async function obterProximoServidor(assunto, ausencias) {
 
   for (let i = 0; i < listaNomes.length; i++) {
     let nome = listaNomes[indexAtual];
-    
     if (isAtivoHoje(nome, ausencias)) {
       servidorDesignado = nome;
       await kv.set(chaveBanco, (indexAtual + 1) % listaNomes.length);
@@ -98,7 +95,9 @@ export default async function handler(req, res) {
 
       let historico = await kv.get('historicoProcessos') ||[];
       historico.unshift(novoProcesso);
-      if (historico.length > 50) historico.pop();
+      
+      // LIMITE AUMENTADO PARA 5000 PARA PERMITIR RELATÓRIOS LONGOS
+      if (historico.length > 5000) historico.pop();
 
       await kv.set('historicoProcessos', historico);
       return res.status(200).json({ processoAtual: novoProcesso, historico });
@@ -135,38 +134,28 @@ export default async function handler(req, res) {
       return res.status(200).json({ historico });
     }
 
-    // ========== EXCLUIR PROCESSO COM REEMBOLSO DE VEZ ==========
     if (action === 'excluirProcesso') {
       let historico = await kv.get('historicoProcessos') ||[];
       const index = historico.findIndex(p => p.id === payload.id);
       
       if (index !== -1) {
         let pExcluido = historico[index];
-
-        // Mágica para devolver a vez para quem perdeu o processo
         let chaveBanco = "";
         let listaNomes =[];
 
         if (pExcluido.grupo === "Estudos Tributários") {
-          chaveBanco = 'indexEstudos';
-          listaNomes = GRUPOS_SERVIDORES["Estudos Tributários"];
+          chaveBanco = 'indexEstudos'; listaNomes = GRUPOS_SERVIDORES["Estudos Tributários"];
         } else if (pExcluido.grupo === "Processos Fiscais") {
-          chaveBanco = 'indexFiscais';
-          listaNomes = GRUPOS_SERVIDORES["Processos Fiscais"];
+          chaveBanco = 'indexFiscais'; listaNomes = GRUPOS_SERVIDORES["Processos Fiscais"];
         } else if (pExcluido.grupo === "Processos Fiscais (Fila ISS Construção)") {
-          chaveBanco = 'indexFiscais_ISS';
-          listaNomes = GRUPOS_SERVIDORES["Processos Fiscais"];
+          chaveBanco = 'indexFiscais_ISS'; listaNomes = GRUPOS_SERVIDORES["Processos Fiscais"];
         }
 
         if (chaveBanco !== "") {
           const indexServidor = listaNomes.indexOf(pExcluido.servidor);
-          if (indexServidor !== -1) {
-            // Regrava a fila apontando de volta para o servidor que perdeu o processo!
-            await kv.set(chaveBanco, indexServidor);
-          }
+          if (indexServidor !== -1) await kv.set(chaveBanco, indexServidor);
         }
 
-        // Deleta de fato do histórico
         historico.splice(index, 1);
         await kv.set('historicoProcessos', historico);
       }
@@ -211,7 +200,6 @@ export default async function handler(req, res) {
     }
 
     return res.status(400).json({ error: "Ação não reconhecida." });
-
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
