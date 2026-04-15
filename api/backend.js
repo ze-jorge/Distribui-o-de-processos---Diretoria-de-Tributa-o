@@ -6,9 +6,7 @@ const GRUPOS_SERVIDORES = {
 };
 
 // ================= FERIADOS (PALMAS, TO E NACIONAIS) =================
-// Feriados fixos anuais (Mês-Dia)
 const FERIADOS_PALMAS_FIXOS =["01-01", "03-19", "04-21", "05-01", "05-20", "09-07", "09-08", "10-05", "10-12", "11-02", "11-15", "12-25"];
-// Feriados Móveis (Carnaval, Paixão de Cristo, Corpus Christi - 2025/2026)
 const FERIADOS_MOVEIS =["2025-03-03", "2025-03-04", "2025-04-18", "2025-06-19", "2026-02-16", "2026-02-17", "2026-04-03", "2026-06-04"];
 
 function isFeriado(dateStr) {
@@ -23,9 +21,9 @@ function calcularDiasUteis(startStr, endStr) {
     let count = 0;
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
         let day = d.getUTCDay();
-        if (day !== 0 && day !== 6) { // Pula Sábados(6) e Domingos(0)
+        if (day !== 0 && day !== 6) { 
             let ds = d.toISOString().split('T')[0];
-            if (!isFeriado(ds)) count++; // Pula Feriados
+            if (!isFeriado(ds)) count++;
         }
     }
     return count;
@@ -39,7 +37,7 @@ function isAtivoHoje(nome, ausencias) {
 
 // ================= DISTRIBUIÇÃO INTELIGENTE =================
 async function obterProximoServidor(assunto, ausencias) {
-  let [indexEstudos, indexFiscais, indexFiscais_ISS] = await Promise.all([
+  let[indexEstudos, indexFiscais, indexFiscais_ISS] = await Promise.all([
     kv.get('indexEstudos'), kv.get('indexFiscais'), kv.get('indexFiscais_ISS')
   ]);
 
@@ -63,7 +61,6 @@ async function obterProximoServidor(assunto, ausencias) {
   for (let i = 0; i < listaNomes.length; i++) {
     let nome = listaNomes[indexAtual];
     
-    // Verifica se o servidor NÃO está no período de férias/folga hoje!
     if (isAtivoHoje(nome, ausencias)) {
       servidorDesignado = nome;
       await kv.set(chaveBanco, (indexAtual + 1) % listaNomes.length);
@@ -106,35 +103,79 @@ export default async function handler(req, res) {
       return res.status(200).json({ processoAtual: novoProcesso, historico });
     }
 
+    // ========== NOVA ROTINA: EDITAR DADOS DO PROCESSO ==========
+    if (action === 'editarProcesso') {
+      let historico = await kv.get('historicoProcessos') ||[];
+      const index = historico.findIndex(p => p.id === payload.id);
+      if (index === -1) throw new Error("Processo não encontrado.");
+
+      let pAntigo = historico[index];
+      let novoAssunto = payload.assunto;
+      let novoGrupo = pAntigo.grupo;
+
+      // Se corrigir o assunto, verifica se ele pertence a outro setor para corrigir a tag de Grupo
+      const assuntosEstudos =["IPTU Social", "Restituição e Compensação", "PMCMV", "Diversos - Estudos"];
+      const assuntosFiscaisGeral =["ITBI incorporação", "Imunidades e isenções", "Decadência", "Pareceres Diversos"];
+      
+      if (assuntosEstudos.includes(novoAssunto)) novoGrupo = "Estudos Tributários";
+      else if (assuntosFiscaisGeral.includes(novoAssunto)) novoGrupo = "Processos Fiscais";
+      else if (novoAssunto === "ISS Construção") novoGrupo = "Processos Fiscais (Fila ISS Construção)";
+
+      historico[index] = {
+        ...pAntigo,
+        numero: payload.numeroProcesso,
+        dataHora: payload.dataHoraEntrada,
+        assunto: novoAssunto,
+        grupo: novoGrupo
+      };
+
+      await kv.set('historicoProcessos', historico);
+      return res.status(200).json({ processoAtual: historico[index], historico });
+    }
+
+    // ========== NOVA ROTINA: TRANSFERIR RESPONSÁVEL ==========
+    if (action === 'transferirProcesso') {
+      let historico = await kv.get('historicoProcessos') ||[];
+      const index = historico.findIndex(p => p.id === payload.id);
+      if (index === -1) throw new Error("Processo não encontrado.");
+
+      historico[index].servidor = payload.novoServidor;
+      await kv.set('historicoProcessos', historico);
+      return res.status(200).json({ historico });
+    }
+
+    // ========== EXCLUIR PROCESSO ==========
+    if (action === 'excluirProcesso') {
+      let historico = await kv.get('historicoProcessos') ||[];
+      historico = historico.filter(p => p.id !== payload.id);
+      await kv.set('historicoProcessos', historico);
+      return res.status(200).json(historico);
+    }
+
+    // ========== AGENDAMENTO DE AUSÊNCIAS ==========
     if (action === 'agendarAusencia') {
       const { nome, grupo, tipo, dataInicio, dataFim } = payload;
-      
       if (dataInicio > dataFim) throw new Error("A data inicial não pode ser maior que a final.");
       
       const diasUteis = calcularDiasUteis(dataInicio, dataFim);
-      if (diasUteis === 0) throw new Error("O período selecionado cai inteiramente em finais de semana ou feriados (Nenhum dia útil computado).");
+      if (diasUteis === 0) throw new Error("O período cai inteiramente em finais de semana ou feriados.");
 
-      // Regra dos Recessos
       if (tipo === 'Recesso') {
         if (diasUteis > 3) throw new Error("Atenção: O recesso não pode ser superior a 03 dias ÚTEIS seguidos.");
-        
         const anoAtual = dataInicio.substring(0, 4);
         let recessoJaUsado = ausencias
           .filter(a => a.nome === nome && a.tipo === 'Recesso' && a.dataInicio.startsWith(anoAtual))
           .reduce((acc, a) => acc + calcularDiasUteis(a.dataInicio, a.dataFim), 0);
-          
-        if (recessoJaUsado + diasUteis > 10) throw new Error(`Limite anual de 10 dias excedido. Restam apenas ${10 - recessoJaUsado} dia(s) para ${nome}.`);
+        if (recessoJaUsado + diasUteis > 10) throw new Error(`Limite anual de 10 dias excedido para ${nome}.`);
       }
 
-      // Regra de Conflito de Marcação Dupla
       const temConflitoData = ausencias.some(a => a.nome === nome && ((dataInicio >= a.dataInicio && dataInicio <= a.dataFim) || (dataFim >= a.dataInicio && dataFim <= a.dataFim)));
-      if (temConflitoData) throw new Error("O servidor já possui uma ausência marcada conflitando com este período.");
+      if (temConflitoData) throw new Error("O servidor já possui uma ausência marcada neste período.");
 
-      // Regra de Máximo de 2 servidores por grupo
       for (let d = new Date(dataInicio + 'T12:00:00Z'); d <= new Date(dataFim + 'T12:00:00Z'); d.setDate(d.getDate() + 1)) {
         let dateStr = d.toISOString().split('T')[0];
         let inativosNoDia = ausencias.filter(a => a.grupo === grupo && a.dataInicio <= dateStr && a.dataFim >= dateStr).length;
-        if (inativosNoDia >= 2) throw new Error(`Conflito: No dia ${dateStr.split('-').reverse().join('/')}, o grupo '${grupo}' já possuirá 2 servidores de folga. Distribuição prejudicada.`);
+        if (inativosNoDia >= 2) throw new Error(`Conflito: No dia ${dateStr.split('-').reverse().join('/')}, o grupo '${grupo}' já possuirá 2 servidores de folga.`);
       }
 
       ausencias.push({ id: Date.now().toString(), nome, grupo, tipo, dataInicio, dataFim });
@@ -146,14 +187,6 @@ export default async function handler(req, res) {
       ausencias = ausencias.filter(a => a.id !== payload.id);
       await kv.set('ausencias', ausencias);
       return res.status(200).json(ausencias);
-    }
-
-    // Excluir ou Editar Processos foram omitidos aqui por brevidade, mas você pode usar o mesmo bloco de edição do código anterior!
-    if (action === 'excluirProcesso') {
-      let historico = await kv.get('historicoProcessos') ||[];
-      historico = historico.filter(p => p.id !== payload.id);
-      await kv.set('historicoProcessos', historico);
-      return res.status(200).json(historico);
     }
 
     return res.status(400).json({ error: "Ação não reconhecida." });
