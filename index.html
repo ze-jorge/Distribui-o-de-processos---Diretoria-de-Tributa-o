@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Sistema de Distribuição</title>
-    <!-- BIBLIOTECA DO CALENDÁRIO -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
@@ -24,7 +23,6 @@
         th, td { padding: 8px; border: 1px solid #ccc; text-align: left; vertical-align: middle; }
         th { background-color: #343a40; color: white; }
         
-        /* Botões de Ação na Tabela */
         .btn-acao { padding: 5px 8px; font-size: 12px; cursor: pointer; border: none; border-radius: 4px; color: white; width: auto; margin: 2px; }
         .btn-edit { background-color: #ffc107; color: black; }
         .btn-transfer { background-color: #17a2b8; }
@@ -34,7 +32,6 @@
         .badge-recesso { background-color: #ffc107; color: black; padding: 3px 6px; border-radius: 4px; }
         #calendario { max-height: 500px; font-size: 14px; }
         
-        /* Janela Modal de Transferência */
         #modalTransferencia { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
         .modal-box { background: white; padding: 25px; border-radius: 8px; width: 350px; text-align: center; }
     </style>
@@ -51,7 +48,7 @@
     <div id="aba-distribuicao" class="tab-content active">
         <h2 id="tituloFormulario">Distribuir Novo Processo</h2>
         <form id="formProcesso">
-            <input type="hidden" id="processoIdEdit"> <!-- ID oculto para modo de edição -->
+            <input type="hidden" id="processoIdEdit"> 
             <div class="form-group"><label>Número do Processo:</label><input type="text" id="numeroProcesso" required></div>
             <div class="form-group"><label>Data e Hora de Entrada:</label><input type="datetime-local" id="dataHoraEntrada" required></div>
             <div class="form-group">
@@ -86,7 +83,7 @@
         </table>
     </div>
 
-    <!-- ABA GESTÃO (CALENDÁRIO) -->
+    <!-- ABA GESTÃO -->
     <div id="aba-gestao" class="tab-content">
         <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
             <div style="flex: 1; min-width: 250px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
@@ -96,8 +93,19 @@
                         <label>Servidor:</label>
                         <select id="servidorAusencia" required>
                             <option value="">Selecione...</option>
-                            <optgroup label="Estudos Tributários"><option value="Jeane">Jeane</option><option value="Marcia">Marcia</option><option value="Vanessa">Vanessa</option><option value="Cléia">Cléia</option></optgroup>
-                            <optgroup label="Processos Fiscais"><option value="Wagner">Wagner</option><option value="Neuma">Neuma</option><option value="Maria">Maria</option><option value="Viviene">Viviene</option></optgroup>
+                            <optgroup label="Estudos Tributários">
+                                <option value="Jeane">Jeane</option>
+                                <option value="Marcia">Marcia</option>
+                                <option value="Vanessa">Vanessa</option>
+                                <option value="Cléia">Cléia</option>
+                                <option value="Bárbarh">Bárbarh</option> <!-- Bárbarh Adicionada -->
+                            </optgroup>
+                            <optgroup label="Processos Fiscais">
+                                <option value="Wagner">Wagner</option>
+                                <option value="Neuma">Neuma</option>
+                                <option value="Maria">Maria</option>
+                                <option value="Viviene">Viviene</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div class="form-group"><label>Tipo:</label><select id="tipoAusencia" required><option value="">Selecione...</option><option value="Férias">Férias</option><option value="Recesso">Recesso</option></select></div>
@@ -128,8 +136,19 @@
         <input type="hidden" id="transferirProcessoId">
         
         <select id="novoServidorTransferencia" style="width: 100%; padding: 10px; margin-bottom: 15px;">
-            <optgroup label="Estudos Tributários"><option value="Jeane">Jeane</option><option value="Marcia">Marcia</option><option value="Vanessa">Vanessa</option><option value="Cléia">Cléia</option></optgroup>
-            <optgroup label="Processos Fiscais"><option value="Wagner">Wagner</option><option value="Neuma">Neuma</option><option value="Maria">Maria</option><option value="Viviene">Viviene</option></optgroup>
+            <optgroup label="Estudos Tributários">
+                <option value="Jeane">Jeane</option>
+                <option value="Marcia">Marcia</option>
+                <option value="Vanessa">Vanessa</option>
+                <option value="Cléia">Cléia</option>
+                <option value="Bárbarh">Bárbarh</option> <!-- Bárbarh Adicionada -->
+            </optgroup>
+            <optgroup label="Processos Fiscais">
+                <option value="Wagner">Wagner</option>
+                <option value="Neuma">Neuma</option>
+                <option value="Maria">Maria</option>
+                <option value="Viviene">Viviene</option>
+            </optgroup>
         </select>
         
         <button onclick="confirmarTransferencia()" class="btn-success" style="width: 100%; margin-bottom: 10px;">Confirmar Transferência</button>
@@ -140,6 +159,12 @@
 <script>
     let calendar = null;
     let historicoLocal =[];
+
+    // Bárbarh no array do frontend para evitar falhas visuais
+    const estruturaGrupos = {
+        "Estudos Tributários":["Jeane", "Marcia", "Vanessa", "Cléia", "Bárbarh"],
+        "Processos Fiscais":["Wagner", "Neuma", "Maria", "Viviene"]
+    };
 
     async function apiCall(action, payload = {}) {
         const res = await fetch('/api/backend', {
@@ -239,7 +264,7 @@
         if(!p) return;
         document.getElementById('transferirProcessoId').value = p.id;
         document.getElementById('lblTransferirNum').innerText = p.numero;
-        document.getElementById('novoServidorTransferencia').value = p.servidor; // Pré-seleciona o atual
+        document.getElementById('novoServidorTransferencia').value = p.servidor; 
         document.getElementById('modalTransferencia').style.display = "flex";
     }
 
@@ -279,7 +304,7 @@
     }
 
     function excluirProcesso(id) {
-        if (!confirm("Tem certeza que deseja apagar o registro deste processo?")) return;
+        if (!confirm("Tem certeza que deseja apagar o registro deste processo?\n\nA VEZ será devolvida automaticamente para o servidor que perdeu este processo para manter a justiça da fila.")) return;
         apiCall('excluirProcesso', { id }).then(novaLista => renderizarHistorico(novaLista)).catch(erro => alert(erro.message));
     }
 
