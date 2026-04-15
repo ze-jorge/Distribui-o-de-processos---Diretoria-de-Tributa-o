@@ -1,7 +1,8 @@
 import { kv } from '@vercel/kv';
 
+// Bárbarh incluída no grupo Estudos Tributários
 const GRUPOS_SERVIDORES = {
-  "Estudos Tributários":["Jeane", "Marcia", "Vanessa", "Cléia"],
+  "Estudos Tributários":["Jeane", "Marcia", "Vanessa", "Cléia", "Bárbarh"],
   "Processos Fiscais":["Wagner", "Neuma", "Maria", "Viviene"]
 };
 
@@ -103,7 +104,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ processoAtual: novoProcesso, historico });
     }
 
-    // ========== NOVA ROTINA: EDITAR DADOS DO PROCESSO ==========
     if (action === 'editarProcesso') {
       let historico = await kv.get('historicoProcessos') ||[];
       const index = historico.findIndex(p => p.id === payload.id);
@@ -113,7 +113,6 @@ export default async function handler(req, res) {
       let novoAssunto = payload.assunto;
       let novoGrupo = pAntigo.grupo;
 
-      // Se corrigir o assunto, verifica se ele pertence a outro setor para corrigir a tag de Grupo
       const assuntosEstudos =["IPTU Social", "Restituição e Compensação", "PMCMV", "Diversos - Estudos"];
       const assuntosFiscaisGeral =["ITBI incorporação", "Imunidades e isenções", "Decadência", "Pareceres Diversos"];
       
@@ -121,19 +120,11 @@ export default async function handler(req, res) {
       else if (assuntosFiscaisGeral.includes(novoAssunto)) novoGrupo = "Processos Fiscais";
       else if (novoAssunto === "ISS Construção") novoGrupo = "Processos Fiscais (Fila ISS Construção)";
 
-      historico[index] = {
-        ...pAntigo,
-        numero: payload.numeroProcesso,
-        dataHora: payload.dataHoraEntrada,
-        assunto: novoAssunto,
-        grupo: novoGrupo
-      };
-
+      historico[index] = { ...pAntigo, numero: payload.numeroProcesso, dataHora: payload.dataHoraEntrada, assunto: novoAssunto, grupo: novoGrupo };
       await kv.set('historicoProcessos', historico);
       return res.status(200).json({ processoAtual: historico[index], historico });
     }
 
-    // ========== NOVA ROTINA: TRANSFERIR RESPONSÁVEL ==========
     if (action === 'transferirProcesso') {
       let historico = await kv.get('historicoProcessos') ||[];
       const index = historico.findIndex(p => p.id === payload.id);
@@ -144,11 +135,41 @@ export default async function handler(req, res) {
       return res.status(200).json({ historico });
     }
 
-    // ========== EXCLUIR PROCESSO ==========
+    // ========== EXCLUIR PROCESSO COM REEMBOLSO DE VEZ ==========
     if (action === 'excluirProcesso') {
       let historico = await kv.get('historicoProcessos') ||[];
-      historico = historico.filter(p => p.id !== payload.id);
-      await kv.set('historicoProcessos', historico);
+      const index = historico.findIndex(p => p.id === payload.id);
+      
+      if (index !== -1) {
+        let pExcluido = historico[index];
+
+        // Mágica para devolver a vez para quem perdeu o processo
+        let chaveBanco = "";
+        let listaNomes =[];
+
+        if (pExcluido.grupo === "Estudos Tributários") {
+          chaveBanco = 'indexEstudos';
+          listaNomes = GRUPOS_SERVIDORES["Estudos Tributários"];
+        } else if (pExcluido.grupo === "Processos Fiscais") {
+          chaveBanco = 'indexFiscais';
+          listaNomes = GRUPOS_SERVIDORES["Processos Fiscais"];
+        } else if (pExcluido.grupo === "Processos Fiscais (Fila ISS Construção)") {
+          chaveBanco = 'indexFiscais_ISS';
+          listaNomes = GRUPOS_SERVIDORES["Processos Fiscais"];
+        }
+
+        if (chaveBanco !== "") {
+          const indexServidor = listaNomes.indexOf(pExcluido.servidor);
+          if (indexServidor !== -1) {
+            // Regrava a fila apontando de volta para o servidor que perdeu o processo!
+            await kv.set(chaveBanco, indexServidor);
+          }
+        }
+
+        // Deleta de fato do histórico
+        historico.splice(index, 1);
+        await kv.set('historicoProcessos', historico);
+      }
       return res.status(200).json(historico);
     }
 
