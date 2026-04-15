@@ -4,7 +4,7 @@ import { kv } from '@vercel/kv';
 // 'admin': Faz alterações totais.
 // 'distribuidor': Visualiza tudo e pode distribuir novos processos (Mas não pode apagar/editar/transferir/marcar férias).
 const USUARIOS = {
-  "admin": { senha: "admin123", perfil: "admin" },
+  "admin": { senha: "tributos123", perfil: "admin" },
   "diretor": { senha: "zeprimevo", perfil: "admin" },
   
   // Login genérico para a equipe operar
