@@ -18,18 +18,25 @@
         input, select, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
         .btn-success { background-color: #28a745; color: white; cursor: pointer; font-weight: bold; margin-top: 10px; border: none; }
         .btn-success:hover { background-color: #218838; }
+        .btn-cancel { background-color: #6c757d; color: white; cursor: pointer; font-weight: bold; margin-top: 10px; border: none; }
         .resultado { margin-top: 20px; padding: 15px; background: #d4edda; border-left: 4px solid #28a745; display: none; color: #155724; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         th, td { padding: 8px; border: 1px solid #ccc; text-align: left; vertical-align: middle; }
         th { background-color: #343a40; color: white; }
-        .btn-acao { padding: 5px 8px; font-size: 12px; cursor: pointer; border: none; border-radius: 4px; color: white; width: auto; }
+        
+        /* Botões de Ação na Tabela */
+        .btn-acao { padding: 5px 8px; font-size: 12px; cursor: pointer; border: none; border-radius: 4px; color: white; width: auto; margin: 2px; }
+        .btn-edit { background-color: #ffc107; color: black; }
+        .btn-transfer { background-color: #17a2b8; }
         .btn-delete { background-color: #dc3545; }
+        
         .badge-ferias { background-color: #dc3545; color: white; padding: 3px 6px; border-radius: 4px; }
         .badge-recesso { background-color: #ffc107; color: black; padding: 3px 6px; border-radius: 4px; }
-        
-        /* Ajuste do Calendário */
         #calendario { max-height: 500px; font-size: 14px; }
-        .fc-event { cursor: pointer; }
+        
+        /* Janela Modal de Transferência */
+        #modalTransferencia { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
+        .modal-box { background: white; padding: 25px; border-radius: 8px; width: 350px; text-align: center; }
     </style>
 </head>
 <body onload="carregarTudo()">
@@ -42,8 +49,9 @@
 
     <!-- ABA DISTRIBUIÇÃO -->
     <div id="aba-distribuicao" class="tab-content active">
-        <h2>Distribuir Novo Processo</h2>
+        <h2 id="tituloFormulario">Distribuir Novo Processo</h2>
         <form id="formProcesso">
+            <input type="hidden" id="processoIdEdit"> <!-- ID oculto para modo de edição -->
             <div class="form-group"><label>Número do Processo:</label><input type="text" id="numeroProcesso" required></div>
             <div class="form-group"><label>Data e Hora de Entrada:</label><input type="datetime-local" id="dataHoraEntrada" required></div>
             <div class="form-group">
@@ -66,21 +74,21 @@
                 </select>
             </div>
             <button type="submit" id="btnSubmit" class="btn-success" disabled>Carregando sistema...</button>
+            <button type="button" id="btnCancelarEdicao" class="btn-cancel" style="display:none;" onclick="cancelarEdicao()">Cancelar Correção</button>
         </form>
+        
         <div id="mensagemResultado" class="resultado"></div>
         
         <h3>Últimos Processos</h3>
         <table>
-            <thead><tr><th>Processo</th><th>Assunto</th><th>Servidor Designado</th><th>Ação</th></tr></thead>
+            <thead><tr><th>Processo</th><th>Assunto</th><th>Servidor Designado</th><th>Ações</th></tr></thead>
             <tbody id="tabelaHistorico"><tr><td colspan="4" style="text-align:center;">Carregando dados...</td></tr></tbody>
         </table>
     </div>
 
     <!-- ABA GESTÃO (CALENDÁRIO) -->
     <div id="aba-gestao" class="tab-content">
-        
         <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
-            <!-- FORMULÁRIO DE MARCAÇÃO -->
             <div style="flex: 1; min-width: 250px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
                 <h3 style="margin-top:0;">Agendar Ausência</h3>
                 <form id="formAusencia">
@@ -88,41 +96,21 @@
                         <label>Servidor:</label>
                         <select id="servidorAusencia" required>
                             <option value="">Selecione...</option>
-                            <optgroup label="Estudos Tributários">
-                                <option value="Jeane">Jeane</option>
-                                <option value="Marcia">Marcia</option>
-                                <option value="Vanessa">Vanessa</option>
-                                <option value="Cléia">Cléia</option>
-                            </optgroup>
-                            <optgroup label="Processos Fiscais">
-                                <option value="Wagner">Wagner</option>
-                                <option value="Neuma">Neuma</option>
-                                <option value="Maria">Maria</option>
-                                <option value="Viviene">Viviene</option>
-                            </optgroup>
+                            <optgroup label="Estudos Tributários"><option value="Jeane">Jeane</option><option value="Marcia">Marcia</option><option value="Vanessa">Vanessa</option><option value="Cléia">Cléia</option></optgroup>
+                            <optgroup label="Processos Fiscais"><option value="Wagner">Wagner</option><option value="Neuma">Neuma</option><option value="Maria">Maria</option><option value="Viviene">Viviene</option></optgroup>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Tipo:</label>
-                        <select id="tipoAusencia" required>
-                            <option value="">Selecione...</option>
-                            <option value="Férias">Férias</option>
-                            <option value="Recesso">Recesso</option>
-                        </select>
-                    </div>
+                    <div class="form-group"><label>Tipo:</label><select id="tipoAusencia" required><option value="">Selecione...</option><option value="Férias">Férias</option><option value="Recesso">Recesso</option></select></div>
                     <div class="form-group"><label>Início:</label><input type="date" id="dataInicio" required></div>
                     <div class="form-group"><label>Fim:</label><input type="date" id="dataFim" required></div>
                     <button type="submit" class="btn-success">Agendar</button>
                 </form>
             </div>
-
-            <!-- O CALENDÁRIO VISUAL -->
             <div style="flex: 2; min-width: 400px; padding: 10px; background: white; border-radius: 8px; border: 1px solid #ddd;">
                 <div id="calendario"></div>
                 <small style="color:#666;">Fundo rosa = Feriados em Palmas/TO</small>
             </div>
         </div>
-
         <h3>Lista de Agendamentos</h3>
         <table>
             <thead><tr><th>Servidor</th><th>Grupo</th><th>Tipo</th><th>Período</th><th>Ação</th></tr></thead>
@@ -131,8 +119,27 @@
     </div>
 </div>
 
+<!-- ================= JANELA MODAL DE TRANSFERÊNCIA ================= -->
+<div id="modalTransferencia">
+    <div class="modal-box">
+        <h3 style="margin-top: 0;">Transferir Processo</h3>
+        <p>Selecione o novo servidor responsável pelo processo <strong id="lblTransferirNum"></strong>.</p>
+        
+        <input type="hidden" id="transferirProcessoId">
+        
+        <select id="novoServidorTransferencia" style="width: 100%; padding: 10px; margin-bottom: 15px;">
+            <optgroup label="Estudos Tributários"><option value="Jeane">Jeane</option><option value="Marcia">Marcia</option><option value="Vanessa">Vanessa</option><option value="Cléia">Cléia</option></optgroup>
+            <optgroup label="Processos Fiscais"><option value="Wagner">Wagner</option><option value="Neuma">Neuma</option><option value="Maria">Maria</option><option value="Viviene">Viviene</option></optgroup>
+        </select>
+        
+        <button onclick="confirmarTransferencia()" class="btn-success" style="width: 100%; margin-bottom: 10px;">Confirmar Transferência</button>
+        <button onclick="fecharModalTransferencia()" class="btn-cancel" style="width: 100%;">Cancelar</button>
+    </div>
+</div>
+
 <script>
     let calendar = null;
+    let historicoLocal =[];
 
     async function apiCall(action, payload = {}) {
         const res = await fetch('/api/backend', {
@@ -160,53 +167,123 @@
         if (abaId === 'distribuicao') document.getElementById('btnTabDistribuicao').classList.add('active');
         if (abaId === 'gestao') {
             document.getElementById('btnTabGestao').classList.add('active');
-            if (calendar) setTimeout(() => calendar.render(), 100); // Garante que o calendário renderize na largura certa
+            if (calendar) setTimeout(() => calendar.render(), 100);
         }
     }
 
-    // ================= ROTINAS DE DISTRIBUIÇÃO E HISTÓRICO =================
+    // ================= DISTRIBUIÇÃO E EDIÇÃO =================
     document.getElementById('formProcesso').addEventListener('submit', function(e) {
         e.preventDefault(); 
         const btn = document.getElementById('btnSubmit');
+        const idEdit = document.getElementById('processoIdEdit').value;
+        const isEdit = idEdit !== "";
+        
         btn.innerText = "Processando..."; btn.disabled = true;
 
         const payload = {
+            id: idEdit,
             numeroProcesso: document.getElementById('numeroProcesso').value,
             dataHoraEntrada: document.getElementById('dataHoraEntrada').value,
             assunto: document.getElementById('assunto').value
         };
 
-        apiCall('distribuir', payload)
+        const actionCall = isEdit ? 'editarProcesso' : 'distribuir';
+
+        apiCall(actionCall, payload)
             .then(resposta => {
-                btn.innerText = "Distribuir Processo"; btn.disabled = false;
+                btn.innerText = isEdit ? "Salvar Correção" : "Distribuir Processo"; btn.disabled = false;
                 let p = resposta.processoAtual;
                 const divRes = document.getElementById('mensagemResultado');
                 divRes.style.display = "block";
-                divRes.innerHTML = `<strong>Sucesso!</strong> Processo <strong>${p.numero}</strong> foi para <strong>${p.servidor}</strong>.<br><small>Setor: ${p.grupo}</small>`;
-                document.getElementById('formProcesso').reset();
+                
+                if(isEdit) {
+                    divRes.innerHTML = `<strong>Sucesso!</strong> Dados do processo <strong>${p.numero}</strong> atualizados. Continua com <strong>${p.servidor}</strong>.`;
+                } else {
+                    divRes.innerHTML = `<strong>Sucesso!</strong> Processo <strong>${p.numero}</strong> foi para <strong>${p.servidor}</strong>.<br><small>Setor: ${p.grupo}</small>`;
+                }
+                
+                cancelarEdicao();
                 renderizarHistorico(resposta.historico);
             })
-            .catch(erro => { btn.innerText = "Distribuir Processo"; btn.disabled = false; alert(erro.message); });
+            .catch(erro => { btn.innerText = isEdit ? "Salvar Correção" : "Distribuir Processo"; btn.disabled = false; alert(erro.message); });
     });
 
+    function prepararEdicao(id) {
+        const p = historicoLocal.find(x => x.id === id);
+        if (!p) return;
+        document.getElementById('tituloFormulario').innerText = "Corrigir Dados do Processo";
+        document.getElementById('processoIdEdit').value = p.id;
+        document.getElementById('numeroProcesso').value = p.numero;
+        document.getElementById('dataHoraEntrada').value = p.dataHora;
+        document.getElementById('assunto').value = p.assunto;
+        
+        document.getElementById('btnSubmit').innerText = "Salvar Correção";
+        document.getElementById('btnSubmit').classList.replace('btn-success', 'btn-edit');
+        document.getElementById('btnCancelarEdicao').style.display = "inline-block";
+        document.getElementById('mensagemResultado').style.display = "none";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicao() {
+        document.getElementById('tituloFormulario').innerText = "Distribuir Novo Processo";
+        document.getElementById('processoIdEdit').value = "";
+        document.getElementById('formProcesso').reset();
+        document.getElementById('btnSubmit').innerText = "Distribuir Processo";
+        document.getElementById('btnSubmit').classList.replace('btn-edit', 'btn-success');
+        document.getElementById('btnCancelarEdicao').style.display = "none";
+    }
+
+    // ================= TRANSFERÊNCIA MANUAL =================
+    function abrirModalTransferencia(id) {
+        const p = historicoLocal.find(x => x.id === id);
+        if(!p) return;
+        document.getElementById('transferirProcessoId').value = p.id;
+        document.getElementById('lblTransferirNum').innerText = p.numero;
+        document.getElementById('novoServidorTransferencia').value = p.servidor; // Pré-seleciona o atual
+        document.getElementById('modalTransferencia').style.display = "flex";
+    }
+
+    function fecharModalTransferencia() {
+        document.getElementById('modalTransferencia').style.display = "none";
+    }
+
+    function confirmarTransferencia() {
+        const id = document.getElementById('transferirProcessoId').value;
+        const novoServidor = document.getElementById('novoServidorTransferencia').value;
+        
+        apiCall('transferirProcesso', { id, novoServidor })
+            .then(resposta => {
+                alert("Processo transferido com sucesso!");
+                fecharModalTransferencia();
+                renderizarHistorico(resposta.historico);
+            })
+            .catch(erro => alert(erro.message));
+    }
+
+    // ================= EXCLUSÃO E RENDERIZAÇÃO =================
     function renderizarHistorico(lista) {
+        historicoLocal = lista;
         const tbody = document.getElementById('tabelaHistorico');
         tbody.innerHTML = lista.length === 0 ? `<tr><td colspan="4" style="text-align:center;">Nenhum processo.</td></tr>` : "";
         lista.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td>${p.numero}</td><td>${p.assunto}</td>
                 <td><strong>${p.servidor}</strong><br><span style="font-size:10px; color:#666;">${p.grupo}</span></td>
-                <td><button class="btn-acao btn-delete" onclick="excluirProcesso('${p.id}')">🗑️ Cancelar</button></td>`;
+                <td>
+                    <button class="btn-acao btn-edit" onclick="prepararEdicao('${p.id}')">✏️ Editar</button>
+                    <button class="btn-acao btn-transfer" onclick="abrirModalTransferencia('${p.id}')">🔄 Transferir</button>
+                    <button class="btn-acao btn-delete" onclick="excluirProcesso('${p.id}')">🗑️ Apagar</button>
+                </td>`;
             tbody.appendChild(tr);
         });
     }
 
     function excluirProcesso(id) {
-        if (!confirm("Tem certeza que deseja cancelar distribuição?")) return;
+        if (!confirm("Tem certeza que deseja apagar o registro deste processo?")) return;
         apiCall('excluirProcesso', { id }).then(novaLista => renderizarHistorico(novaLista)).catch(erro => alert(erro.message));
     }
 
-    // ================= ROTINAS DO CALENDÁRIO E AUSÊNCIAS =================
+    // ================= ROTINAS DO CALENDÁRIO =================
     document.getElementById('formAusencia').addEventListener('submit', function(e) {
         e.preventDefault();
         const btn = e.target.querySelector('button');
@@ -232,15 +309,13 @@
     });
 
     function excluirAusencia(id) {
-        if(!confirm("Deseja cancelar esta ausência? O Servidor voltará para a fila.")) return;
+        if(!confirm("Deseja cancelar esta ausência?")) return;
         apiCall('excluirAusencia', { id }).then(ausencias => renderizarAgendamentosECalendario(ausencias)).catch(erro => alert(erro.message));
     }
 
     function renderizarAgendamentosECalendario(ausencias) {
-        // Tabela
         const tbody = document.getElementById('tabelaAusencias');
-        tbody.innerHTML = ausencias.length === 0 ? `<tr><td colspan="5" style="text-align:center;">Nenhuma ausência registrada.</td></tr>` : "";
-        
+        tbody.innerHTML = ausencias.length === 0 ? `<tr><td colspan="5" style="text-align:center;">Nenhuma ausência.</td></tr>` : "";
         ausencias.sort((a,b) => a.dataInicio.localeCompare(b.dataInicio)).forEach(a => {
             const tr = document.createElement('tr');
             tr.innerHTML = `<td><strong>${a.nome}</strong></td><td>${a.grupo}</td>
@@ -250,44 +325,29 @@
             tbody.appendChild(tr);
         });
 
-        // Eventos do Calendário
-        let eventos =[];
+        let eventos = [];
         const ano = new Date().getFullYear();
-        
-        // Feriados visuais no Calendário
         const feriados =[
-            {title: 'Ano Novo', date: `${ano}-01-01`}, {title: 'São José (Padroeiro)', date: `${ano}-03-19`},
-            {title: 'Tiradentes', date: `${ano}-04-21`}, {title: 'Trabalhador', date: `${ano}-05-01`},
-            {title: 'Aniv. Palmas', date: `${ano}-05-20`}, {title: 'Independência', date: `${ano}-09-07`},
-            {title: 'Padroeira TO', date: `${ano}-09-08`}, {title: 'Criação TO', date: `${ano}-10-05`},
-            {title: 'N.S. Aparecida', date: `${ano}-10-12`}, {title: 'Finados', date: `${ano}-11-02`},
-            {title: 'Proc. República', date: `${ano}-11-15`}, {title: 'Natal', date: `${ano}-12-25`},
-            {title: 'Carnaval', date: `2026-02-16`}, {title: 'Carnaval', date: `2026-02-17`}, 
-            {title: 'Paixão de Cristo', date: `2026-04-03`}, {title: 'Corpus Christi', date: `2026-06-04`}
+            {title: 'Ano Novo', date: `${ano}-01-01`}, {title: 'São José', date: `${ano}-03-19`}, {title: 'Tiradentes', date: `${ano}-04-21`},
+            {title: 'Trabalhador', date: `${ano}-05-01`}, {title: 'Aniv. Palmas', date: `${ano}-05-20`}, {title: 'Independência', date: `${ano}-09-07`},
+            {title: 'Padroeira TO', date: `${ano}-09-08`}, {title: 'Criação TO', date: `${ano}-10-05`}, {title: 'N.S. Aparecida', date: `${ano}-10-12`},
+            {title: 'Finados', date: `${ano}-11-02`}, {title: 'Proc. República', date: `${ano}-11-15`}, {title: 'Natal', date: `${ano}-12-25`},
+            {title: 'Carnaval', date: `2026-02-16`}, {title: 'Carnaval', date: `2026-02-17`}, {title: 'Paixão', date: `2026-04-03`}, {title: 'Corpus', date: `2026-06-04`}
         ];
-
         feriados.forEach(f => { eventos.push({ title: f.title, start: f.date, display: 'background', color: '#ffcdd2' }); });
 
-        // Férias e Recessos dos Servidores
         ausencias.forEach(a => {
             let fim = new Date(a.dataFim + 'T12:00:00Z');
-            fim.setDate(fim.getDate() + 1); // FullCalendar é exclusivo no dia final, logo adicionamos 1 dia
-            
+            fim.setDate(fim.getDate() + 1); 
             eventos.push({
-                id: a.id,
-                title: `${a.nome} (${a.tipo})`,
-                start: a.dataInicio,
-                end: fim.toISOString().split('T')[0],
-                color: a.tipo === 'Férias' ? '#dc3545' : '#ffc107',
-                textColor: a.tipo === 'Férias' ? '#fff' : '#000'
+                id: a.id, title: `${a.nome} (${a.tipo})`, start: a.dataInicio, end: fim.toISOString().split('T')[0],
+                color: a.tipo === 'Férias' ? '#dc3545' : '#ffc107', textColor: a.tipo === 'Férias' ? '#fff' : '#000'
             });
         });
 
         if (calendar) calendar.destroy();
-        
         calendar = new FullCalendar.Calendar(document.getElementById('calendario'), {
-            initialView: 'dayGridMonth',
-            locale: 'pt-br',
+            initialView: 'dayGridMonth', locale: 'pt-br',
             headerToolbar: { left: 'prev,next today', center: 'title', right: '' },
             events: eventos
         });
