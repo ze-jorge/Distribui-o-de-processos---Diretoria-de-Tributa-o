@@ -1,16 +1,10 @@
 import { kv } from '@vercel/kv';
 
 // ================= LISTA DE USUÁRIOS E PERFIS =================
-// 'admin': Faz alterações totais.
-// 'distribuidor': Visualiza tudo e pode distribuir novos processos (Mas não pode apagar/editar/transferir/marcar férias).
 const USUARIOS = {
-  "admin": { senha: "tributos123", perfil: "admin" },
-  "diretor": { senha: "zeprimevo", perfil: "admin" },
-  
-  // Login genérico para a equipe operar
+  "admin": { senha: "admin123", perfil: "admin" },
+  "diretoria": { senha: "123456", perfil: "admin" },
   "equipe": { senha: "equipe123", perfil: "distribuidor" },
-  
-  // Logins individuais (Opcional, todos como distribuidores)
   "wagner": { senha: "senha123", perfil: "distribuidor" },
   "jeane": { senha: "senha123", perfil: "distribuidor" },
   "neuma": { senha: "senha123", perfil: "distribuidor" },
@@ -76,14 +70,11 @@ export default async function handler(req, res) {
     if (action === 'login') {
       const { usuario, senha } = payload;
       const userKey = (usuario || "").toLowerCase().trim();
-      
       if (USUARIOS[userKey] && USUARIOS[userKey].senha === senha) {
         const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
         await kv.set(`session_${token}`, userKey, { ex: 86400 });
         return res.status(200).json({ token, usuario: userKey, perfil: USUARIOS[userKey].perfil });
-      } else {
-        return res.status(401).json({ error: "Usuário ou senha incorretos." });
-      }
+      } else return res.status(401).json({ error: "Usuário ou senha incorretos." });
     }
 
     if (action === 'logout') {
@@ -94,16 +85,13 @@ export default async function handler(req, res) {
     // ========== MIDDLEWARE DE SEGURANÇA ==========
     const tokenSessao = payload ? payload.token : null;
     if (!tokenSessao) return res.status(401).json({ error: "Acesso Negado. Faça Login." });
-    
     const usuarioLogado = await kv.get(`session_${tokenSessao}`);
     if (!usuarioLogado) return res.status(401).json({ error: "Sessão expirada. Faça login novamente." });
 
     const perfilUsuario = USUARIOS[usuarioLogado] ? USUARIOS[usuarioLogado].perfil : "distribuidor";
-    
-    // Agora o distribuidor pode distribuir! Só o resto que é bloqueado.
     const acoesBloqueadasDistribuidor =['editarProcesso', 'transferirProcesso', 'excluirProcesso', 'agendarAusencia', 'excluirAusencia'];
     if (acoesBloqueadasDistribuidor.includes(action) && perfilUsuario !== "admin") {
-      return res.status(403).json({ error: "Acesso Restrito: Seu perfil de Distribuidor não possui permissão de Administrador para fazer isto." });
+      return res.status(403).json({ error: "Acesso Restrito: Seu perfil não possui permissão de Administrador." });
     }
 
     // ========== AÇÕES DO SISTEMA ==========
@@ -117,10 +105,7 @@ export default async function handler(req, res) {
     if (action === 'distribuir') {
       const { assunto, numeroProcesso, dataHoraEntrada } = payload;
       const { servidor, grupo } = await obterProximoServidor(assunto, ausencias);
-      const novoProcesso = { 
-        id: Date.now().toString(), numero: numeroProcesso, dataHora: dataHoraEntrada, 
-        assunto, grupo, servidor, transferido: false, servidorOrigem: "" 
-      };
+      const novoProcesso = { id: Date.now().toString(), numero: numeroProcesso, dataHora: dataHoraEntrada, assunto, grupo, servidor, transferido: false, servidorOrigem: "" };
       let historico = await kv.get('historicoProcessos') ||[];
       historico.unshift(novoProcesso);
       if (historico.length > 5000) historico.pop();
@@ -141,17 +126,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ processoAtual: historico[index], historico });
     }
 
-    // AQUI ESTÁ A MUDANÇA DA TRANSFERÊNCIA
     if (action === 'transferirProcesso') {
       let historico = await kv.get('historicoProcessos') ||[];
       const index = historico.findIndex(p => p.id === payload.id);
       if (index === -1) throw new Error("Processo não encontrado.");
-      
-      // Guarda quem era o servidor antigo e ativa a tag de transferido
       historico[index].servidorOrigem = historico[index].servidor;
       historico[index].transferido = true;
       historico[index].servidor = payload.novoServidor;
-      
       await kv.set('historicoProcessos', historico);
       return res.status(200).json({ historico });
     }
@@ -168,23 +149,34 @@ export default async function handler(req, res) {
       return res.status(200).json(historico);
     }
 
+    // ========== AGENDAMENTO DE AUSÊNCIAS (ATUALIZADO) ==========
     if (action === 'agendarAusencia') {
       const { nome, grupo, tipo, dataInicio, dataFim } = payload;
       if (dataInicio > dataFim) throw new Error("Data inicial maior que a final.");
       const diasUteis = calcularDiasUteis(dataInicio, dataFim);
       if (diasUteis === 0) throw new Error("Período cai inteiramente em fins de semana/feriados.");
+
+      // Regra 1: Recesso Anual Comum (Max 3 seguidos, Max 5 anuais)
       if (tipo === 'Recesso') {
-        if (diasUteis > 3) throw new Error("Recesso máximo de 03 dias ÚTEIS seguidos.");
+        if (diasUteis > 3) throw new Error("Recesso comum máximo de 03 dias ÚTEIS seguidos.");
         let recessoJaUsado = ausencias.filter(a => a.nome === nome && a.tipo === 'Recesso' && a.dataInicio.startsWith(dataInicio.substring(0,4))).reduce((acc, a) => acc + calcularDiasUteis(a.dataInicio, a.dataFim), 0);
-        
-        // LIMITE ALTERADO DE 10 PARA 05 AQUI
-        if (recessoJaUsado + diasUteis > 5) throw new Error(`O limite de 05 dias anuais de recesso foi excedido para ${nome}. Restam apenas ${5 - recessoJaUsado} dia(s).`);
+        if (recessoJaUsado + diasUteis > 5) throw new Error(`Limite de 05 dias anuais de recesso comum excedido para ${nome}.`);
       }
+      
+      // Regra 2: Recesso Mutirão 2025 (Max 10 totais, Limite Junho/2026)
+      else if (tipo === 'Recesso Mutirão') {
+        if (dataFim > '2026-06-30') throw new Error("O Recesso do Mutirão 2025 deve ser utilizado até no máximo 30 de junho de 2026.");
+        let recessoMutiraoJaUsado = ausencias.filter(a => a.nome === nome && a.tipo === 'Recesso Mutirão').reduce((acc, a) => acc + calcularDiasUteis(a.dataInicio, a.dataFim), 0);
+        if (recessoMutiraoJaUsado + diasUteis > 10) throw new Error(`O limite total de 10 dias do Recesso Mutirão foi excedido para ${nome}. Restam apenas ${10 - recessoMutiraoJaUsado} dia(s) úteis.`);
+      }
+
+      // Regra 3: Conflitos de Data Individuais e de Grupo
       if (ausencias.some(a => a.nome === nome && ((dataInicio >= a.dataInicio && dataInicio <= a.dataFim) || (dataFim >= a.dataInicio && dataFim <= a.dataFim)))) throw new Error("Servidor já possui ausência neste período.");
       for (let d = new Date(dataInicio + 'T12:00:00Z'); d <= new Date(dataFim + 'T12:00:00Z'); d.setDate(d.getDate() + 1)) {
         let dateStr = d.toISOString().split('T')[0];
         if (ausencias.filter(a => a.grupo === grupo && a.dataInicio <= dateStr && a.dataFim >= dateStr).length >= 2) throw new Error(`Conflito: No dia ${dateStr.split('-').reverse().join('/')}, o grupo já possuirá 2 servidores de folga.`);
       }
+
       ausencias.push({ id: Date.now().toString(), nome, grupo, tipo, dataInicio, dataFim });
       await kv.set('ausencias', ausencias);
       return res.status(200).json(ausencias);
