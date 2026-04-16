@@ -2,8 +2,8 @@ import { kv } from '@vercel/kv';
 
 // ================= LISTA DE USUÁRIOS E PERFIS =================
 const USUARIOS = {
-  "admin": { senha: "admin123", perfil: "admin" },
-  "diretoria": { senha: "123456", perfil: "admin" },
+  "admin": { senha: "tributos123", perfil: "admin" },
+  "diretor": { senha: "zeprimevo", perfil: "admin" },
   "equipe": { senha: "equipe123", perfil: "distribuidor" },
   "wagner": { senha: "senha123", perfil: "distribuidor" },
   "jeane": { senha: "senha123", perfil: "distribuidor" },
