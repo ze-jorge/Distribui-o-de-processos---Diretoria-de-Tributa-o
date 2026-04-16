@@ -3,52 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <title>Sistema de Distribuição</title>
-    <!-- Bibliotecas Externas -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <style>
         body { font-family: Arial, sans-serif; background-color: #e9ecef; padding: 20px; margin: 0; }
         .container { max-width: 1000px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: auto; }
-        
         #login-container { max-width: 400px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: 100px auto; text-align: center; }
         #login-container h2 { margin-top: 0; color: #0056b3; }
         #app-container { display: none; }
-        
         .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ccc; overflow-x: auto; align-items: center; }
         .tab-btn { flex: 1; padding: 12px; cursor: pointer; background: #eee; border: none; font-size: 15px; font-weight: bold; color: #555; white-space: nowrap; }
         .tab-btn.active { background: #0056b3; color: white; border-top-left-radius: 8px; border-top-right-radius: 8px; }
-        
         .btn-logout { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 10px; }
         .btn-logout:hover { background: #c82333; }
         #badgeRole { margin-left: auto; background: #17a2b8; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .form-group { margin-bottom: 15px; text-align: left; }
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
         input, select, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
-        
         .btn-success { background-color: #28a745; color: white; cursor: pointer; font-weight: bold; border: none; }
         .btn-success:hover { background-color: #218838; }
         .btn-cancel { background-color: #6c757d; color: white; cursor: pointer; font-weight: bold; border: none; }
-        
         .resultado { margin-top: 20px; padding: 15px; background: #d4edda; border-left: 4px solid #28a745; display: none; color: #155724; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         th, td { padding: 8px; border: 1px solid #ccc; text-align: left; vertical-align: middle; }
         th { background-color: #343a40; color: white; }
-        
         .btn-acao { padding: 5px 8px; font-size: 12px; cursor: pointer; border: none; border-radius: 4px; color: white; width: auto; margin: 2px; }
         .btn-edit { background-color: #ffc107; color: black; }
         .btn-transfer { background-color: #17a2b8; }
         .btn-delete { background-color: #dc3545; }
-        
-        /* Badges de Ausência e Transferência */
         .badge-ferias { background-color: #dc3545; color: white; padding: 3px 6px; border-radius: 4px; }
         .badge-recesso { background-color: #ffc107; color: black; padding: 3px 6px; border-radius: 4px; }
-        .badge-mutirao { background-color: #6f42c1; color: white; padding: 3px 6px; border-radius: 4px; } /* Novo Recesso Roxo */
         .badge-transferido { display: inline-block; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 3px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px; font-weight: bold; }
-
         #calendario { max-height: 500px; font-size: 14px; }
         #modalTransferencia { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
         .modal-box { background: white; padding: 25px; border-radius: 8px; width: 350px; text-align: center; }
@@ -58,7 +45,6 @@
 </head>
 <body onload="verificarLogin()">
 
-<!-- TELA DE LOGIN -->
 <div id="login-container">
     <h2>Acesso ao Sistema</h2>
     <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Insira suas credenciais para continuar.</p>
@@ -70,7 +56,6 @@
     <div id="erroLogin" style="color: red; margin-top: 15px; font-size: 14px; display: none;"></div>
 </div>
 
-<!-- SISTEMA PRINCIPAL -->
 <div id="app-container" class="container">
     <div class="tabs">
         <button id="btnTabDistribuicao" class="tab-btn active" onclick="abrirAba('distribuicao')">Distribuição</button>
@@ -82,7 +67,6 @@
 
     <!-- ABA DISTRIBUIÇÃO -->
     <div id="aba-distribuicao" class="tab-content active">
-        
         <div id="blocoFormDistribuicao">
             <h2 id="tituloFormulario">Distribuir Novo Processo</h2>
             <form id="formProcesso">
@@ -114,17 +98,12 @@
             <div id="mensagemResultado" class="resultado"></div>
             <h3 style="margin-top: 30px;">Últimos Processos</h3>
         </div>
-
-        <table>
-            <thead id="theadHistorico"></thead>
-            <tbody id="tabelaHistorico"><tr><td colspan="4" style="text-align:center;">Carregando dados...</td></tr></tbody>
-        </table>
+        <table><thead id="theadHistorico"></thead><tbody id="tabelaHistorico"><tr><td colspan="4" style="text-align:center;">Carregando dados...</td></tr></tbody></table>
     </div>
 
     <!-- ABA CALENDÁRIO -->
     <div id="aba-gestao" class="tab-content">
         <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px;">
-            
             <div id="blocoFormAgendamento" style="flex: 1; min-width: 250px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
                 <h3 style="margin-top:0;">Agendar Ausência</h3>
                 <form id="formAusencia">
@@ -136,30 +115,16 @@
                             <optgroup label="Processos Fiscais"><option value="Wagner">Wagner</option><option value="Neuma">Neuma</option><option value="Maria">Maria</option><option value="Viviene">Viviene</option></optgroup>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Tipo:</label>
-                        <select id="tipoAusencia" required>
-                            <option value="">Selecione...</option>
-                            <option value="Férias">Férias</option>
-                            <option value="Recesso">Recesso Padrão (5 dias anuais)</option>
-                            <option value="Recesso Mutirão">Recesso Mutirão 2025 (10 dias totais)</option>
-                        </select>
-                    </div>
+                    <div class="form-group"><label>Tipo:</label><select id="tipoAusencia" required><option value="">Selecione...</option><option value="Férias">Férias</option><option value="Recesso">Recesso (5 dias/ano)</option></select></div>
                     <div class="form-group"><label>Início:</label><input type="date" id="dataInicio" required></div>
                     <div class="form-group"><label>Fim:</label><input type="date" id="dataFim" required></div>
                     <button type="submit" class="btn-success" style="padding:10px;">Agendar</button>
                 </form>
             </div>
-
-            <div style="flex: 2; min-width: 400px; padding: 10px; background: white; border-radius: 8px; border: 1px solid #ddd;">
-                <div id="calendario"></div>
-            </div>
+            <div style="flex: 2; min-width: 400px; padding: 10px; background: white; border-radius: 8px; border: 1px solid #ddd;"><div id="calendario"></div></div>
         </div>
         <h3>Lista de Agendamentos</h3>
-        <table>
-            <thead id="theadAusencias"></thead>
-            <tbody id="tabelaAusencias"></tbody>
-        </table>
+        <table><thead id="theadAusencias"></thead><tbody id="tabelaAusencias"></tbody></table>
     </div>
 
     <!-- ABA RELATÓRIOS -->
@@ -172,16 +137,8 @@
             <div><button onclick="limparFiltroRelatorios()" class="btn-cancel" style="padding: 10px 20px;">Limpar</button></div>
         </div>
         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-            <div class="chart-container">
-                <h3 style="text-align: center; margin-top: 0;">Processos por Assunto</h3>
-                <canvas id="graficoAssuntos" style="max-height: 250px;"></canvas>
-                <table style="margin-top: 20px;"><thead><tr><th>Assunto</th><th>Total</th></tr></thead><tbody id="tabelaRelAssuntos"></tbody></table>
-            </div>
-            <div class="chart-container">
-                <h3 style="text-align: center; margin-top: 0;">Processos por Servidor</h3>
-                <canvas id="graficoServidores" style="max-height: 250px;"></canvas>
-                <table style="margin-top: 20px;"><thead><tr><th>Servidor</th><th>Total</th><th>Detalhamento</th></tr></thead><tbody id="tabelaRelServidores"></tbody></table>
-            </div>
+            <div class="chart-container"><h3 style="text-align: center; margin-top: 0;">Processos por Assunto</h3><canvas id="graficoAssuntos" style="max-height: 250px;"></canvas><table style="margin-top: 20px;"><thead><tr><th>Assunto</th><th>Total</th></tr></thead><tbody id="tabelaRelAssuntos"></tbody></table></div>
+            <div class="chart-container"><h3 style="text-align: center; margin-top: 0;">Processos por Servidor</h3><canvas id="graficoServidores" style="max-height: 250px;"></canvas><table style="margin-top: 20px;"><thead><tr><th>Servidor</th><th>Total</th><th>Detalhamento</th></tr></thead><tbody id="tabelaRelServidores"></tbody></table></div>
         </div>
     </div>
 </div>
@@ -234,7 +191,6 @@
     function aplicarPermissoesUI() {
         const role = localStorage.getItem('appRole');
         const badge = document.getElementById('badgeRole');
-        
         if (role === 'admin') {
             badge.innerText = "⭐ Administrador"; badge.style.background = "#28a745";
             document.getElementById('blocoFormAgendamento').style.display = "block";
@@ -259,15 +215,10 @@
         btn.innerText = "Entrar"; btn.disabled = false;
     });
 
-    async function fazerLogout() {
-        try { await apiCall('logout'); } catch(e) {}
-        localStorage.removeItem('appToken'); localStorage.removeItem('appRole'); verificarLogin();
-    }
+    async function fazerLogout() { try { await apiCall('logout'); } catch(e) {} localStorage.removeItem('appToken'); localStorage.removeItem('appRole'); verificarLogin(); }
 
     function carregarTudo() {
-        apiCall('carregar').then(dados => {
-            historicoLocal = dados.historico; renderizarHistorico(historicoLocal); renderizarAgendamentosECalendario(dados.ausencias); gerarRelatorios();
-        }).catch(erro => alert(erro.message));
+        apiCall('carregar').then(dados => { historicoLocal = dados.historico; renderizarHistorico(historicoLocal); renderizarAgendamentosECalendario(dados.ausencias); gerarRelatorios(); }).catch(erro => alert(erro.message));
     }
 
     function abrirAba(abaId) {
@@ -298,15 +249,9 @@
         tbody.innerHTML = listaExibicao.length === 0 ? `<tr><td colspan="${cols}" style="text-align:center;">Nenhum processo recente.</td></tr>` : "";
         
         listaExibicao.forEach(p => {
-            let acoesHtml = isAdmin ? `<td>
-                <button class="btn-acao btn-edit" onclick="prepararEdicao('${p.id}')">✏️ Editar</button>
-                <button class="btn-acao btn-transfer" onclick="abrirModalTransferencia('${p.id}')">🔄 Transferir</button>
-                <button class="btn-acao btn-delete" onclick="excluirProcesso('${p.id}')">🗑️ Apagar</button></td>` : ``;
-
-            let tagTransferido = p.transferido ? `<br><span class="badge-transferido">🔄 Transferido (Era de: ${p.servidorOrigem})</span>` : ``;
-
-            tbody.innerHTML += `<tr><td>${p.numero}</td><td>${p.assunto.replace(" - Estudos", "").replace(" - Fiscais", "")}</td>
-                <td><strong>${p.servidor}</strong><br><span style="font-size:10px; color:#666;">${p.grupo}</span>${tagTransferido}</td>${acoesHtml}</tr>`;
+            let acoesHtml = isAdmin ? `<td><button class="btn-acao btn-edit" onclick="prepararEdicao('${p.id}')">✏️ Editar</button><button class="btn-acao btn-transfer" onclick="abrirModalTransferencia('${p.id}')">🔄 Transferir</button><button class="btn-acao btn-delete" onclick="excluirProcesso('${p.id}')">🗑️ Apagar</button></td>` : ``;
+            let tagTransferido = p.transferido ? `<br><span class="badge-transferido">🔄 Transferido (Era do/a ${p.servidorOrigem})</span>` : ``;
+            tbody.innerHTML += `<tr><td>${p.numero}</td><td>${p.assunto.replace(" - Estudos", "").replace(" - Fiscais", "")}</td><td><strong>${p.servidor}</strong><br><span style="font-size:10px; color:#666;">${p.grupo}</span>${tagTransferido}</td>${acoesHtml}</tr>`;
         });
     }
 
@@ -317,16 +262,11 @@
     function cancelarEdicao() { document.getElementById('tituloFormulario').innerText = "Distribuir Novo Processo"; document.getElementById('processoIdEdit').value = ""; document.getElementById('formProcesso').reset(); document.getElementById('btnSubmit').innerText = "Distribuir Processo"; document.getElementById('btnSubmit').classList.replace('btn-edit', 'btn-success'); document.getElementById('btnCancelarEdicao').style.display = "none"; }
     function abrirModalTransferencia(id) { const p = historicoLocal.find(x => x.id === id); if(!p) return; document.getElementById('transferirProcessoId').value = p.id; document.getElementById('lblTransferirNum').innerText = p.numero; document.getElementById('novoServidorTransferencia').value = p.servidor; document.getElementById('modalTransferencia').style.display = "flex"; }
     function fecharModalTransferencia() { document.getElementById('modalTransferencia').style.display = "none"; }
-    
     function confirmarTransferencia() {
         const id = document.getElementById('transferirProcessoId').value, novoServidor = document.getElementById('novoServidorTransferencia').value;
         apiCall('transferirProcesso', { id, novoServidor }).then(r => { alert("Transferido!"); fecharModalTransferencia(); historicoLocal = r.historico; renderizarHistorico(historicoLocal); gerarRelatorios(); }).catch(e => alert(e.message));
     }
-    
-    function excluirProcesso(id) {
-        if (!confirm("Tem certeza que deseja apagar? A vez será devolvida ao servidor.")) return;
-        apiCall('excluirProcesso', { id }).then(nl => { historicoLocal = nl; renderizarHistorico(nl); gerarRelatorios(); }).catch(e => alert(e.message));
-    }
+    function excluirProcesso(id) { if (!confirm("Tem certeza que deseja apagar? A vez será devolvida ao servidor.")) return; apiCall('excluirProcesso', { id }).then(nl => { historicoLocal = nl; renderizarHistorico(nl); gerarRelatorios(); }).catch(e => alert(e.message)); }
 
     // ================= ROTINAS DE RELATÓRIO =================
     function limparFiltroRelatorios() { document.getElementById('filtroDataInicio').value = ""; document.getElementById('filtroDataFim').value = ""; gerarRelatorios(); }
@@ -345,14 +285,15 @@
         desenharGraficos(contagemAssuntos, contagemServidores); preencherTabelasRelatorio(contagemAssuntos, contagemServidores);
     }
     function desenharGraficos(dadosAssuntos, dadosServidores) {
-        if (chartObjAssuntos) chartObjAssuntos.destroy();
-        chartObjAssuntos = new Chart(document.getElementById('graficoAssuntos'), { type: 'bar', data: { labels: Object.keys(dadosAssuntos), datasets:[{ label: 'Qtd de Processos', data: Object.values(dadosAssuntos), backgroundColor: '#0056b3' }] }, options: { responsive: true, maintainAspectRatio: false } });
-        if (chartObjServidores) chartObjServidores.destroy();
-        chartObjServidores = new Chart(document.getElementById('graficoServidores'), { type: 'bar', data: { labels: Object.keys(dadosServidores).sort(), datasets:[{ label: 'Processos Atribuídos', data: Object.keys(dadosServidores).sort().map(s => dadosServidores[s].total), backgroundColor: '#28a745' }] }, options: { responsive: true, maintainAspectRatio: false } });
+        if (chartObjAssuntos) chartObjAssuntos.destroy(); chartObjAssuntos = new Chart(document.getElementById('graficoAssuntos'), { type: 'bar', data: { labels: Object.keys(dadosAssuntos), datasets:[{ label: 'Qtd de Processos', data: Object.values(dadosAssuntos), backgroundColor: '#0056b3' }] }, options: { responsive: true, maintainAspectRatio: false } });
+        if (chartObjServidores) chartObjServidores.destroy(); chartObjServidores = new Chart(document.getElementById('graficoServidores'), { type: 'bar', data: { labels: Object.keys(dadosServidores).sort(), datasets:[{ label: 'Processos Atribuídos', data: Object.keys(dadosServidores).sort().map(s => dadosServidores[s].total), backgroundColor: '#28a745' }] }, options: { responsive: true, maintainAspectRatio: false } });
     }
     function preencherTabelasRelatorio(dadosAssuntos, dadosServidores) {
         const tbAssuntos = document.getElementById('tabelaRelAssuntos'); tbAssuntos.innerHTML = ""; let somaAssuntos = 0;
-       for (const serv of Object.keys(dadosServidores).sort()) {
+        for (const[assunto, total] of Object.entries(dadosAssuntos)) { somaAssuntos += total; tbAssuntos.innerHTML += `<tr><td>${assunto}</td><td><strong>${total}</strong></td></tr>`; }
+        if (somaAssuntos === 0) tbAssuntos.innerHTML = `<tr><td colspan="2" style="text-align:center;">Sem dados no período</td></tr>`; else tbAssuntos.innerHTML += `<tr style="background:#f1f3f5;"><td><strong>TOTAL GERAL</strong></td><td><strong>${somaAssuntos}</strong></td></tr>`;
+        const tbServidores = document.getElementById('tabelaRelServidores'); tbServidores.innerHTML = ""; let somaServidores = 0;
+        for (const serv of Object.keys(dadosServidores).sort()) {
             const info = dadosServidores[serv]; somaServidores += info.total; let strDetalhes = "";
             for (const[ass, qtd] of Object.entries(info.detalhes)) strDetalhes += `<span style="display:inline-block; background:#e9ecef; padding:2px 6px; border-radius:4px; font-size:11px; margin:2px;">${ass}: <strong>${qtd}</strong></span>`;
             tbServidores.innerHTML += `<tr><td><strong>${serv}</strong></td><td><strong>${info.total}</strong></td><td>${strDetalhes}</td></tr>`;
@@ -368,39 +309,20 @@
         apiCall('agendarAusencia', payload).then(aus => { alert("Agendado!"); document.getElementById('formAusencia').reset(); renderizarAgendamentosECalendario(aus); btn.innerText = "Agendar"; btn.disabled = false; }).catch(e => { alert(e.message); btn.innerText = "Agendar"; btn.disabled = false; });
     });
     function excluirAusencia(id) { if(!confirm("Cancelar ausência?")) return; apiCall('excluirAusencia', { id }).then(a => renderizarAgendamentosECalendario(a)).catch(e => alert(e.message)); }
-    
     function renderizarAgendamentosECalendario(ausencias) {
         const isAdmin = localStorage.getItem('appRole') === 'admin';
         document.getElementById('theadAusencias').innerHTML = `<tr><th>Servidor</th><th>Grupo</th><th>Tipo</th><th>Período</th>${isAdmin ? '<th>Ação</th>' : ''}</tr>`;
         const tbody = document.getElementById('tabelaAusencias'); let cols = isAdmin ? 5 : 4;
         tbody.innerHTML = ausencias.length === 0 ? `<tr><td colspan="${cols}" style="text-align:center;">Nenhuma ausência.</td></tr>` : "";
-        
         ausencias.sort((a,b) => a.dataInicio.localeCompare(b.dataInicio)).forEach(a => { 
             let htmlAcoes = isAdmin ? `<td><button class="btn-acao btn-delete" onclick="excluirAusencia('${a.id}')">🗑️</button></td>` : ``;
-            
-            // Cores das Badges na Tabela
-            let badgeClass = 'badge-recesso'; // Amarelo (Recesso Padrão)
-            if(a.tipo === 'Férias') badgeClass = 'badge-ferias'; // Vermelho
-            if(a.tipo === 'Recesso Mutirão') badgeClass = 'badge-mutirao'; // Roxo
-
-            tbody.innerHTML += `<tr><td><strong>${a.nome}</strong></td><td>${a.grupo}</td><td><span class="${badgeClass}">${a.tipo}</span></td><td>${a.dataInicio.split('-').reverse().join('/')} até ${a.dataFim.split('-').reverse().join('/')}</td>${htmlAcoes}</tr>`; 
+            tbody.innerHTML += `<tr><td><strong>${a.nome}</strong></td><td>${a.grupo}</td><td><span class="${a.tipo==='Férias'?'badge-ferias':'badge-recesso'}">${a.tipo}</span></td><td>${a.dataInicio.split('-').reverse().join('/')} até ${a.dataFim.split('-').reverse().join('/')}</td>${htmlAcoes}</tr>`; 
         });
         
         let eventos =[]; const ano = new Date().getFullYear();
         const feriados =[{title:'Ano Novo',date:`${ano}-01-01`},{title:'São José',date:`${ano}-03-19`},{title:'Tiradentes',date:`${ano}-04-21`},{title:'Trabalhador',date:`${ano}-05-01`},{title:'Aniv. Palmas',date:`${ano}-05-20`},{title:'Independência',date:`${ano}-09-07`},{title:'Padroeira TO',date:`${ano}-09-08`},{title:'Criação TO',date:`${ano}-10-05`},{title:'N.S. Aparecida',date:`${ano}-10-12`},{title:'Finados',date:`${ano}-11-02`},{title:'Proc. República',date:`${ano}-11-15`},{title:'Natal',date:`${ano}-12-25`}];
         feriados.forEach(f => eventos.push({title: f.title, start: f.date, display: 'background', color: '#ffcdd2'}));
-        
-        ausencias.forEach(a => { 
-            let fim = new Date(a.dataFim+'T12:00:00Z'); fim.setDate(fim.getDate()+1); 
-            
-            // Cores dos blocos no Calendário Visual
-            let corFundo = '#ffc107'; let corTexto = '#000'; // Recesso Padrão (Amarelo)
-            if(a.tipo === 'Férias') { corFundo = '#dc3545'; corTexto = '#fff'; } // Férias (Vermelho)
-            if(a.tipo === 'Recesso Mutirão') { corFundo = '#6f42c1'; corTexto = '#fff'; } // Mutirão (Roxo)
-
-            eventos.push({id: a.id, title:`${a.nome} (${a.tipo})`, start: a.dataInicio, end: fim.toISOString().split('T')[0], color: corFundo, textColor: corTexto}); 
-        });
-        
+        ausencias.forEach(a => { let fim = new Date(a.dataFim+'T12:00:00Z'); fim.setDate(fim.getDate()+1); eventos.push({id: a.id, title:`${a.nome} (${a.tipo})`, start: a.dataInicio, end: fim.toISOString().split('T')[0], color: a.tipo==='Férias'?'#dc3545':'#ffc107', textColor: a.tipo==='Férias'?'#fff':'#000'}); });
         if(calendar) calendar.destroy();
         calendar = new FullCalendar.Calendar(document.getElementById('calendario'), { initialView: 'dayGridMonth', locale: 'pt-br', headerToolbar: { left: 'prev,next today', center: 'title', right: '' }, events: eventos });
         calendar.render();
