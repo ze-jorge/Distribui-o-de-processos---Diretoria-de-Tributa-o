@@ -3,39 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <title>Sistema de Distribuição</title>
+    <!-- Bibliotecas Externas -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
         body { font-family: Arial, sans-serif; background-color: #e9ecef; padding: 20px; margin: 0; }
         .container { max-width: 1000px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: auto; }
+        
         #login-container { max-width: 400px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: 100px auto; text-align: center; }
         #login-container h2 { margin-top: 0; color: #0056b3; }
         #app-container { display: none; }
+        
         .tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #ccc; overflow-x: auto; align-items: center; }
         .tab-btn { flex: 1; padding: 12px; cursor: pointer; background: #eee; border: none; font-size: 15px; font-weight: bold; color: #555; white-space: nowrap; }
         .tab-btn.active { background: #0056b3; color: white; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+        
         .btn-logout { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; margin-left: 10px; }
         .btn-logout:hover { background: #c82333; }
         #badgeRole { margin-left: auto; background: #17a2b8; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .form-group { margin-bottom: 15px; text-align: left; }
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #333; }
         input, select, button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        
         .btn-success { background-color: #28a745; color: white; cursor: pointer; font-weight: bold; border: none; }
         .btn-success:hover { background-color: #218838; }
         .btn-cancel { background-color: #6c757d; color: white; cursor: pointer; font-weight: bold; border: none; }
+        
         .resultado { margin-top: 20px; padding: 15px; background: #d4edda; border-left: 4px solid #28a745; display: none; color: #155724; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
         th, td { padding: 8px; border: 1px solid #ccc; text-align: left; vertical-align: middle; }
         th { background-color: #343a40; color: white; }
+        
         .btn-acao { padding: 5px 8px; font-size: 12px; cursor: pointer; border: none; border-radius: 4px; color: white; width: auto; margin: 2px; }
         .btn-edit { background-color: #ffc107; color: black; }
         .btn-transfer { background-color: #17a2b8; }
         .btn-delete { background-color: #dc3545; }
+        
         .badge-ferias { background-color: #dc3545; color: white; padding: 3px 6px; border-radius: 4px; }
         .badge-recesso { background-color: #ffc107; color: black; padding: 3px 6px; border-radius: 4px; }
         .badge-transferido { display: inline-block; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 3px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px; font-weight: bold; }
+
         #calendario { max-height: 500px; font-size: 14px; }
         #modalTransferencia { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
         .modal-box { background: white; padding: 25px; border-radius: 8px; width: 350px; text-align: center; }
@@ -72,7 +83,8 @@
             <form id="formProcesso">
                 <input type="hidden" id="processoIdEdit"> 
                 <div class="form-group"><label>Número do Processo:</label><input type="text" id="numeroProcesso" required></div>
-                <div class="form-group"><label>Data e Hora de Entrada:</label><input type="datetime-local" id="dataHoraEntrada" required></div>
+                <!-- REMOVIDA A HORA: AGORA É APENAS INPUT TYPE DATE -->
+                <div class="form-group"><label>Data de Entrada:</label><input type="date" id="dataHoraEntrada" required></div>
                 <div class="form-group">
                     <label>Assunto do Processo:</label>
                     <select id="assunto" required>
@@ -257,8 +269,21 @@
 
     function prepararEdicao(id) {
         const p = historicoLocal.find(x => x.id === id); if (!p) return;
-        document.getElementById('tituloFormulario').innerText = "Corrigir Processo"; document.getElementById('processoIdEdit').value = p.id; document.getElementById('numeroProcesso').value = p.numero; document.getElementById('dataHoraEntrada').value = p.dataHora; document.getElementById('assunto').value = p.assunto; document.getElementById('btnSubmit').innerText = "Salvar Correção"; document.getElementById('btnSubmit').classList.replace('btn-success', 'btn-edit'); document.getElementById('btnCancelarEdicao').style.display = "inline-block"; document.getElementById('mensagemResultado').style.display = "none"; window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.getElementById('tituloFormulario').innerText = "Corrigir Processo"; 
+        document.getElementById('processoIdEdit').value = p.id; 
+        document.getElementById('numeroProcesso').value = p.numero; 
+        
+        // Garante que processos antigos com "Hora" sejam lidos corretamente no novo formato só "Data"
+        document.getElementById('dataHoraEntrada').value = p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora; 
+        
+        document.getElementById('assunto').value = p.assunto; 
+        document.getElementById('btnSubmit').innerText = "Salvar Correção"; 
+        document.getElementById('btnSubmit').classList.replace('btn-success', 'btn-edit'); 
+        document.getElementById('btnCancelarEdicao').style.display = "inline-block"; 
+        document.getElementById('mensagemResultado').style.display = "none"; 
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    
     function cancelarEdicao() { document.getElementById('tituloFormulario').innerText = "Distribuir Novo Processo"; document.getElementById('processoIdEdit').value = ""; document.getElementById('formProcesso').reset(); document.getElementById('btnSubmit').innerText = "Distribuir Processo"; document.getElementById('btnSubmit').classList.replace('btn-edit', 'btn-success'); document.getElementById('btnCancelarEdicao').style.display = "none"; }
     function abrirModalTransferencia(id) { const p = historicoLocal.find(x => x.id === id); if(!p) return; document.getElementById('transferirProcessoId').value = p.id; document.getElementById('lblTransferirNum').innerText = p.numero; document.getElementById('novoServidorTransferencia').value = p.servidor; document.getElementById('modalTransferencia').style.display = "flex"; }
     function fecharModalTransferencia() { document.getElementById('modalTransferencia').style.display = "none"; }
@@ -270,11 +295,17 @@
 
     // ================= ROTINAS DE RELATÓRIO =================
     function limparFiltroRelatorios() { document.getElementById('filtroDataInicio').value = ""; document.getElementById('filtroDataFim').value = ""; gerarRelatorios(); }
+    
     function gerarRelatorios() {
-        const dataInicio = document.getElementById('filtroDataInicio').value, dataFim = document.getElementById('filtroDataFim').value;
+        const dataInicio = document.getElementById('filtroDataInicio').value;
+        const dataFim = document.getElementById('filtroDataFim').value;
+        
         let dadosFiltrados = historicoLocal;
-        if (dataInicio) dadosFiltrados = dadosFiltrados.filter(p => p.dataHora >= dataInicio);
-        if (dataFim) dadosFiltrados = dadosFiltrados.filter(p => p.dataHora <= dataFim + "T23:59:59");
+        
+        // Comparamos só o trecho da Data para não dar erro com cadastros antigos
+        if (dataInicio) dadosFiltrados = dadosFiltrados.filter(p => (p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora) >= dataInicio);
+        if (dataFim) dadosFiltrados = dadosFiltrados.filter(p => (p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora) <= dataFim);
+        
         const contagemAssuntos = {}, contagemServidores = {};
         dadosFiltrados.forEach(p => {
             let assLimpo = p.assunto.replace(" - Estudos", "").replace(" - Fiscais", "");
