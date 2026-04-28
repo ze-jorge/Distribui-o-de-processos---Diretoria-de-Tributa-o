@@ -3,7 +3,7 @@ import { kv } from '@vercel/kv';
 // ================= LISTA DE USUÁRIOS E PERFIS =================
 const USUARIOS = {
   "admin": { senha: "tributos123", perfil: "admin" },
-  "diretor": { senha: "zeprimevo", perfil: "admin" },
+  "diretoria": { senha: "zeprimevo", perfil: "admin" },
   "equipe": { senha: "equipe123", perfil: "distribuidor" },
   "wagner": { senha: "senha123", perfil: "distribuidor" },
   "jeane": { senha: "senha123", perfil: "distribuidor" },
@@ -166,7 +166,6 @@ export default async function handler(req, res) {
         if (diasUteis > 3) throw new Error("Recesso máximo de 03 dias ÚTEIS seguidos.");
         let recessoJaUsado = ausencias.filter(a => a.nome === nome && a.tipo === 'Recesso' && a.dataInicio.startsWith(dataInicio.substring(0,4))).reduce((acc, a) => acc + calcularDiasUteis(a.dataInicio, a.dataFim), 0);
         
-        // LIMITE DE RECESSO AJUSTADO PARA 5 DIAS
         if (recessoJaUsado + diasUteis > 5) throw new Error(`O limite de 05 dias anuais de recesso foi excedido para ${nome}. Restam apenas ${5 - recessoJaUsado} dia(s).`);
       }
       if (ausencias.some(a => a.nome === nome && ((dataInicio >= a.dataInicio && dataInicio <= a.dataFim) || (dataFim >= a.dataInicio && dataFim <= a.dataFim)))) throw new Error("Servidor já possui ausência neste período.");
