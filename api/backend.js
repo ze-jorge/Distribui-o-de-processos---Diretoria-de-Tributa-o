@@ -39,20 +39,27 @@ function isAtivoHoje(nome, ausencias) {
     return !ausencias.some(a => a.nome === nome && a.dataInicio <= dataHoje && a.dataFim >= dataHoje);
 }
 
-// ================= DISTRIBUIÇÃO INDEPENDENTE POR TEMA =================
+// ================= DISTRIBUIÇÃO COM REGRAS MISTAS =================
 async function obterProximoServidor(assunto, ausencias) {
   const assuntosEstudos =["IPTU Social", "Restituição e Compensação", "PMCMV", "Diversos - Estudos"];
   const assuntosFiscais =["ITBI incorporação", "Imunidades e isenções", "Decadência", "ISS Construção", "Pareceres Diversos"];
 
   let grupo = "";
-  if (assuntosEstudos.includes(assunto)) { grupo = "Estudos Tributários"; } 
-  else if (assuntosFiscais.includes(assunto)) { grupo = "Processos Fiscais"; } 
+  let chaveBanco = "";
+
+  if (assuntosEstudos.includes(assunto)) { 
+      grupo = "Estudos Tributários"; 
+      // REGRA 1: Estudos Tributários tem uma Fila GERAL única para todos os temas
+      chaveBanco = "index_fila_geral_estudos"; 
+  } 
+  else if (assuntosFiscais.includes(assunto)) { 
+      grupo = "Processos Fiscais"; 
+      // REGRA 2: Processos Fiscais tem uma Fila INDEPENDENTE para cada tema
+      chaveBanco = `index_fila_${assunto}`; 
+  } 
   else throw new Error("Assunto inválido.");
 
-  // A chave da fila agora é o próprio nome do Assunto! (Garante o Round-Robin perfeito para cada tema)
-  let chaveBanco = `index_fila_${assunto}`;
   let indexAtual = await kv.get(chaveBanco) || 0;
-  
   let listaNomes = GRUPOS_SERVIDORES[grupo];
   let servidorDesignado = null;
 
@@ -165,10 +172,17 @@ export default async function handler(req, res) {
         let pExcluido = historico[index];
         let listaNomes = GRUPOS_SERVIDORES[pExcluido.grupo];
         
-        // Devolve a vez na roleta ESPECÍFICA daquele assunto
-        if (listaNomes) { 
+        // Devolve a vez na roleta respeitando as novas regras
+        let chaveBanco = "";
+        if (pExcluido.grupo === "Estudos Tributários") {
+            chaveBanco = "index_fila_geral_estudos";
+        } else if (pExcluido.grupo === "Processos Fiscais") {
+            chaveBanco = `index_fila_${pExcluido.assunto}`;
+        }
+
+        if (listaNomes && chaveBanco !== "") { 
             const idx = listaNomes.indexOf(pExcluido.servidor); 
-            if (idx !== -1) await kv.set(`index_fila_${pExcluido.assunto}`, idx); 
+            if (idx !== -1) await kv.set(chaveBanco, idx); 
         }
         
         historico.splice(index, 1); 
@@ -183,16 +197,24 @@ export default async function handler(req, res) {
       if (dataInicio > dataFim) throw new Error("Data inicial maior que a final.");
       const diasUteis = calcularDiasUteis(dataInicio, dataFim);
       if (diasUteis === 0) throw new Error("Período cai inteiramente em fins de semana/feriados.");
+      
       if (tipo === 'Recesso') {
-        if (diasUteis > 3) throw new Error("Recesso máximo de 03 dias ÚTEIS seguidos.");
+        if (diasUteis > 3) throw new Error("Recesso comum máximo de 03 dias ÚTEIS seguidos.");
         let recessoJaUsado = ausencias.filter(a => a.nome === nome && a.tipo === 'Recesso' && a.dataInicio.startsWith(dataInicio.substring(0,4))).reduce((acc, a) => acc + calcularDiasUteis(a.dataInicio, a.dataFim), 0);
-        if (recessoJaUsado + diasUteis > 5) throw new Error(`O limite de 05 dias anuais de recesso foi excedido para ${nome}.`);
+        if (recessoJaUsado + diasUteis > 5) throw new Error(`O limite de 05 dias anuais de recesso comum foi excedido para ${nome}.`);
       }
+      else if (tipo === 'Recesso Mutirão') {
+        if (dataFim > '2026-06-30') throw new Error("O Recesso do Mutirão 2025 deve ser utilizado até no máximo 30 de junho de 2026.");
+        let recessoMutiraoJaUsado = ausencias.filter(a => a.nome === nome && a.tipo === 'Recesso Mutirão').reduce((acc, a) => acc + calcularDiasUteis(a.dataInicio, a.dataFim), 0);
+        if (recessoMutiraoJaUsado + diasUteis > 10) throw new Error(`O limite total de 10 dias do Recesso Mutirão foi excedido para ${nome}. Restam apenas ${10 - recessoMutiraoJaUsado} dia(s) úteis.`);
+      }
+
       if (ausencias.some(a => a.nome === nome && ((dataInicio >= a.dataInicio && dataInicio <= a.dataFim) || (dataFim >= a.dataInicio && dataFim <= a.dataFim)))) throw new Error("Servidor já possui ausência neste período.");
       for (let d = new Date(dataInicio + 'T12:00:00Z'); d <= new Date(dataFim + 'T12:00:00Z'); d.setDate(d.getDate() + 1)) {
         let dateStr = d.toISOString().split('T')[0];
         if (ausencias.filter(a => a.grupo === grupo && a.dataInicio <= dateStr && a.dataFim >= dateStr).length >= 2) throw new Error(`Conflito: No dia ${dateStr.split('-').reverse().join('/')}, o grupo já possuirá 2 servidores de folga.`);
       }
+
       ausencias.push({ id: Date.now().toString(), nome, grupo, tipo, dataInicio, dataFim });
       await kv.set('ausencias', ausencias);
       return res.status(200).json(ausencias);
