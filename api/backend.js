@@ -39,25 +39,34 @@ function isAtivoHoje(nome, ausencias) {
     return !ausencias.some(a => a.nome === nome && a.dataInicio <= dataHoje && a.dataFim >= dataHoje);
 }
 
+// ================= DISTRIBUIÇÃO INDEPENDENTE POR TEMA =================
 async function obterProximoServidor(assunto, ausencias) {
-  let[indexEstudos, indexFiscais, indexFiscais_ISS] = await Promise.all([kv.get('indexEstudos'), kv.get('indexFiscais'), kv.get('indexFiscais_ISS')]);
-  let grupo = "", chaveBanco = "", indexAtual = 0;
   const assuntosEstudos =["IPTU Social", "Restituição e Compensação", "PMCMV", "Diversos - Estudos"];
-  const assuntosFiscaisGeral =["ITBI incorporação", "Imunidades e isenções", "Decadência", "Pareceres Diversos"];
+  const assuntosFiscais =["ITBI incorporação", "Imunidades e isenções", "Decadência", "ISS Construção", "Pareceres Diversos"];
 
-  if (assuntosEstudos.includes(assunto)) { grupo = "Estudos Tributários"; chaveBanco = 'indexEstudos'; indexAtual = indexEstudos || 0; } 
-  else if (assuntosFiscaisGeral.includes(assunto)) { grupo = "Processos Fiscais"; chaveBanco = 'indexFiscais'; indexAtual = indexFiscais || 0; } 
-  else if (assunto === "ISS Construção") { grupo = "Processos Fiscais (Fila ISS Construção)"; chaveBanco = 'indexFiscais_ISS'; indexAtual = indexFiscais_ISS || 0; } 
+  let grupo = "";
+  if (assuntosEstudos.includes(assunto)) { grupo = "Estudos Tributários"; } 
+  else if (assuntosFiscais.includes(assunto)) { grupo = "Processos Fiscais"; } 
   else throw new Error("Assunto inválido.");
 
-  let listaNomes = grupo.includes("Estudos") ? GRUPOS_SERVIDORES["Estudos Tributários"] : GRUPOS_SERVIDORES["Processos Fiscais"];
+  // A chave da fila agora é o próprio nome do Assunto! (Garante o Round-Robin perfeito para cada tema)
+  let chaveBanco = `index_fila_${assunto}`;
+  let indexAtual = await kv.get(chaveBanco) || 0;
+  
+  let listaNomes = GRUPOS_SERVIDORES[grupo];
   let servidorDesignado = null;
 
+  // Roda a roleta testando quem está ativo
   for (let i = 0; i < listaNomes.length; i++) {
     let nome = listaNomes[indexAtual];
-    if (isAtivoHoje(nome, ausencias)) { servidorDesignado = nome; await kv.set(chaveBanco, (indexAtual + 1) % listaNomes.length); break; }
+    if (isAtivoHoje(nome, ausencias)) { 
+        servidorDesignado = nome; 
+        await kv.set(chaveBanco, (indexAtual + 1) % listaNomes.length); 
+        break; 
+    }
     indexAtual = (indexAtual + 1) % listaNomes.length;
   }
+  
   if (!servidorDesignado) throw new Error(`Todos os servidores do grupo "${grupo}" estão de folga/férias hoje.`);
   return { servidor: servidorDesignado, grupo };
 }
@@ -126,9 +135,13 @@ export default async function handler(req, res) {
       const index = historico.findIndex(p => p.id === payload.id);
       if (index === -1) throw new Error("Processo não encontrado.");
       let pAntigo = historico[index]; let novoAssunto = payload.assunto; let novoGrupo = pAntigo.grupo;
+      
       const assuntosEstudos =["IPTU Social", "Restituição e Compensação", "PMCMV", "Diversos - Estudos"];
-      const assuntosFiscaisGeral =["ITBI incorporação", "Imunidades e isenções", "Decadência", "Pareceres Diversos"];
-      if (assuntosEstudos.includes(novoAssunto)) novoGrupo = "Estudos Tributários"; else if (assuntosFiscaisGeral.includes(novoAssunto)) novoGrupo = "Processos Fiscais"; else if (novoAssunto === "ISS Construção") novoGrupo = "Processos Fiscais (Fila ISS Construção)";
+      const assuntosFiscais =["ITBI incorporação", "Imunidades e isenções", "Decadência", "ISS Construção", "Pareceres Diversos"];
+      
+      if (assuntosEstudos.includes(novoAssunto)) novoGrupo = "Estudos Tributários"; 
+      else if (assuntosFiscais.includes(novoAssunto)) novoGrupo = "Processos Fiscais"; 
+      
       historico[index] = { ...pAntigo, numero: payload.numeroProcesso, dataHora: payload.dataHoraEntrada, assunto: novoAssunto, grupo: novoGrupo };
       await kv.set('historicoProcessos', historico);
       return res.status(200).json({ processoAtual: historico[index], historico });
@@ -149,14 +162,22 @@ export default async function handler(req, res) {
       let historico = await kv.get('historicoProcessos') ||[];
       const index = historico.findIndex(p => p.id === payload.id);
       if (index !== -1) {
-        let pExcluido = historico[index]; let chaveBanco = ""; let listaNomes =[];
-        if (pExcluido.grupo === "Estudos Tributários") { chaveBanco = 'indexEstudos'; listaNomes = GRUPOS_SERVIDORES["Estudos Tributários"]; } else if (pExcluido.grupo === "Processos Fiscais") { chaveBanco = 'indexFiscais'; listaNomes = GRUPOS_SERVIDORES["Processos Fiscais"]; } else if (pExcluido.grupo === "Processos Fiscais (Fila ISS Construção)") { chaveBanco = 'indexFiscais_ISS'; listaNomes = GRUPOS_SERVIDORES["Processos Fiscais"]; }
-        if (chaveBanco !== "") { const idx = listaNomes.indexOf(pExcluido.servidor); if (idx !== -1) await kv.set(chaveBanco, idx); }
-        historico.splice(index, 1); await kv.set('historicoProcessos', historico);
+        let pExcluido = historico[index];
+        let listaNomes = GRUPOS_SERVIDORES[pExcluido.grupo];
+        
+        // Devolve a vez na roleta ESPECÍFICA daquele assunto
+        if (listaNomes) { 
+            const idx = listaNomes.indexOf(pExcluido.servidor); 
+            if (idx !== -1) await kv.set(`index_fila_${pExcluido.assunto}`, idx); 
+        }
+        
+        historico.splice(index, 1); 
+        await kv.set('historicoProcessos', historico);
       }
       return res.status(200).json(historico);
     }
 
+    // ========== AGENDAMENTO DE AUSÊNCIAS ==========
     if (action === 'agendarAusencia') {
       const { nome, grupo, tipo, dataInicio, dataFim } = payload;
       if (dataInicio > dataFim) throw new Error("Data inicial maior que a final.");
@@ -165,8 +186,7 @@ export default async function handler(req, res) {
       if (tipo === 'Recesso') {
         if (diasUteis > 3) throw new Error("Recesso máximo de 03 dias ÚTEIS seguidos.");
         let recessoJaUsado = ausencias.filter(a => a.nome === nome && a.tipo === 'Recesso' && a.dataInicio.startsWith(dataInicio.substring(0,4))).reduce((acc, a) => acc + calcularDiasUteis(a.dataInicio, a.dataFim), 0);
-        
-        if (recessoJaUsado + diasUteis > 5) throw new Error(`O limite de 05 dias anuais de recesso foi excedido para ${nome}. Restam apenas ${5 - recessoJaUsado} dia(s).`);
+        if (recessoJaUsado + diasUteis > 5) throw new Error(`O limite de 05 dias anuais de recesso foi excedido para ${nome}.`);
       }
       if (ausencias.some(a => a.nome === nome && ((dataInicio >= a.dataInicio && dataInicio <= a.dataFim) || (dataFim >= a.dataInicio && dataFim <= a.dataFim)))) throw new Error("Servidor já possui ausência neste período.");
       for (let d = new Date(dataInicio + 'T12:00:00Z'); d <= new Date(dataFim + 'T12:00:00Z'); d.setDate(d.getDate() + 1)) {
