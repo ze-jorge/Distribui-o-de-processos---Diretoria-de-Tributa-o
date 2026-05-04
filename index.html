@@ -83,7 +83,6 @@
             <form id="formProcesso">
                 <input type="hidden" id="processoIdEdit"> 
                 <div class="form-group"><label>Número do Processo:</label><input type="text" id="numeroProcesso" required></div>
-                <!-- REMOVIDA A HORA: AGORA É APENAS INPUT TYPE DATE -->
                 <div class="form-group"><label>Data de Entrada:</label><input type="date" id="dataHoraEntrada" required></div>
                 <div class="form-group">
                     <label>Assunto do Processo:</label>
@@ -148,9 +147,21 @@
             <div><button onclick="gerarRelatorios()" class="btn-success" style="padding: 10px 20px;">Filtrar</button></div>
             <div><button onclick="limparFiltroRelatorios()" class="btn-cancel" style="padding: 10px 20px;">Limpar</button></div>
         </div>
+        
         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-            <div class="chart-container"><h3 style="text-align: center; margin-top: 0;">Processos por Assunto</h3><canvas id="graficoAssuntos" style="max-height: 250px;"></canvas><table style="margin-top: 20px;"><thead><tr><th>Assunto</th><th>Total</th></tr></thead><tbody id="tabelaRelAssuntos"></tbody></table></div>
-            <div class="chart-container"><h3 style="text-align: center; margin-top: 0;">Processos por Servidor</h3><canvas id="graficoServidores" style="max-height: 250px;"></canvas><table style="margin-top: 20px;"><thead><tr><th>Servidor</th><th>Total</th><th>Detalhamento</th></tr></thead><tbody id="tabelaRelServidores"></tbody></table></div>
+            <!-- GRÁFICO 1: ASSUNTOS (Visível para todos) -->
+            <div class="chart-container">
+                <h3 style="text-align: center; margin-top: 0;">Processos por Assunto</h3>
+                <canvas id="graficoAssuntos" style="max-height: 250px;"></canvas>
+                <table style="margin-top: 20px;"><thead><tr><th>Assunto</th><th>Total</th></tr></thead><tbody id="tabelaRelAssuntos"></tbody></table>
+            </div>
+            
+            <!-- GRÁFICO 2: SERVIDORES (Oculto para usuários comuns) -->
+            <div id="blocoRelatorioServidores" class="chart-container">
+                <h3 style="text-align: center; margin-top: 0;">Processos por Servidor</h3>
+                <canvas id="graficoServidores" style="max-height: 250px;"></canvas>
+                <table style="margin-top: 20px;"><thead><tr><th>Servidor</th><th>Total</th><th>Detalhamento</th></tr></thead><tbody id="tabelaRelServidores"></tbody></table>
+            </div>
         </div>
     </div>
 </div>
@@ -200,15 +211,19 @@
         }
     }
 
+    // Função que aplica a segurança visual dependendo de quem logou
     function aplicarPermissoesUI() {
         const role = localStorage.getItem('appRole');
         const badge = document.getElementById('badgeRole');
+        
         if (role === 'admin') {
             badge.innerText = "⭐ Administrador"; badge.style.background = "#28a745";
             document.getElementById('blocoFormAgendamento').style.display = "block";
+            document.getElementById('blocoRelatorioServidores').style.display = "block"; // Visível para Admin
         } else {
             badge.innerText = "📝 Distribuidor"; badge.style.background = "#17a2b8";
             document.getElementById('blocoFormAgendamento').style.display = "none";
+            document.getElementById('blocoRelatorioServidores').style.display = "none"; // Oculto para Equipe
         }
         document.getElementById('blocoFormDistribuicao').style.display = "block";
     }
@@ -272,10 +287,7 @@
         document.getElementById('tituloFormulario').innerText = "Corrigir Processo"; 
         document.getElementById('processoIdEdit').value = p.id; 
         document.getElementById('numeroProcesso').value = p.numero; 
-        
-        // Garante que processos antigos com "Hora" sejam lidos corretamente no novo formato só "Data"
         document.getElementById('dataHoraEntrada').value = p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora; 
-        
         document.getElementById('assunto').value = p.assunto; 
         document.getElementById('btnSubmit').innerText = "Salvar Correção"; 
         document.getElementById('btnSubmit').classList.replace('btn-success', 'btn-edit'); 
@@ -302,7 +314,6 @@
         
         let dadosFiltrados = historicoLocal;
         
-        // Comparamos só o trecho da Data para não dar erro com cadastros antigos
         if (dataInicio) dadosFiltrados = dadosFiltrados.filter(p => (p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora) >= dataInicio);
         if (dataFim) dadosFiltrados = dadosFiltrados.filter(p => (p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora) <= dataFim);
         
@@ -315,21 +326,37 @@
         });
         desenharGraficos(contagemAssuntos, contagemServidores); preencherTabelasRelatorio(contagemAssuntos, contagemServidores);
     }
+    
     function desenharGraficos(dadosAssuntos, dadosServidores) {
-        if (chartObjAssuntos) chartObjAssuntos.destroy(); chartObjAssuntos = new Chart(document.getElementById('graficoAssuntos'), { type: 'bar', data: { labels: Object.keys(dadosAssuntos), datasets:[{ label: 'Qtd de Processos', data: Object.values(dadosAssuntos), backgroundColor: '#0056b3' }] }, options: { responsive: true, maintainAspectRatio: false } });
-        if (chartObjServidores) chartObjServidores.destroy(); chartObjServidores = new Chart(document.getElementById('graficoServidores'), { type: 'bar', data: { labels: Object.keys(dadosServidores).sort(), datasets:[{ label: 'Processos Atribuídos', data: Object.keys(dadosServidores).sort().map(s => dadosServidores[s].total), backgroundColor: '#28a745' }] }, options: { responsive: true, maintainAspectRatio: false } });
+        // Gráfico de Assuntos (Sempre desenha)
+        if (chartObjAssuntos) chartObjAssuntos.destroy(); 
+        chartObjAssuntos = new Chart(document.getElementById('graficoAssuntos'), { type: 'bar', data: { labels: Object.keys(dadosAssuntos), datasets:[{ label: 'Qtd de Processos', data: Object.values(dadosAssuntos), backgroundColor: '#0056b3' }] }, options: { responsive: true, maintainAspectRatio: false } });
+        
+        // Gráfico de Servidores (Só desenha se for Admin/Diretoria)
+        const isAdmin = localStorage.getItem('appRole') === 'admin';
+        if (isAdmin) {
+            if (chartObjServidores) chartObjServidores.destroy(); 
+            chartObjServidores = new Chart(document.getElementById('graficoServidores'), { type: 'bar', data: { labels: Object.keys(dadosServidores).sort(), datasets:[{ label: 'Processos Atribuídos', data: Object.keys(dadosServidores).sort().map(s => dadosServidores[s].total), backgroundColor: '#28a745' }] }, options: { responsive: true, maintainAspectRatio: false } });
+        }
     }
+    
     function preencherTabelasRelatorio(dadosAssuntos, dadosServidores) {
+        // Tabela Assuntos
         const tbAssuntos = document.getElementById('tabelaRelAssuntos'); tbAssuntos.innerHTML = ""; let somaAssuntos = 0;
         for (const[assunto, total] of Object.entries(dadosAssuntos)) { somaAssuntos += total; tbAssuntos.innerHTML += `<tr><td>${assunto}</td><td><strong>${total}</strong></td></tr>`; }
         if (somaAssuntos === 0) tbAssuntos.innerHTML = `<tr><td colspan="2" style="text-align:center;">Sem dados no período</td></tr>`; else tbAssuntos.innerHTML += `<tr style="background:#f1f3f5;"><td><strong>TOTAL GERAL</strong></td><td><strong>${somaAssuntos}</strong></td></tr>`;
-        const tbServidores = document.getElementById('tabelaRelServidores'); tbServidores.innerHTML = ""; let somaServidores = 0;
-        for (const serv of Object.keys(dadosServidores).sort()) {
-            const info = dadosServidores[serv]; somaServidores += info.total; let strDetalhes = "";
-            for (const[ass, qtd] of Object.entries(info.detalhes)) strDetalhes += `<span style="display:inline-block; background:#e9ecef; padding:2px 6px; border-radius:4px; font-size:11px; margin:2px;">${ass}: <strong>${qtd}</strong></span>`;
-            tbServidores.innerHTML += `<tr><td><strong>${serv}</strong></td><td><strong>${info.total}</strong></td><td>${strDetalhes}</td></tr>`;
+        
+        // Tabela Servidores
+        const isAdmin = localStorage.getItem('appRole') === 'admin';
+        if (isAdmin) {
+            const tbServidores = document.getElementById('tabelaRelServidores'); tbServidores.innerHTML = ""; let somaServidores = 0;
+            for (const serv of Object.keys(dadosServidores).sort()) {
+                const info = dadosServidores[serv]; somaServidores += info.total; let strDetalhes = "";
+                for (const[ass, qtd] of Object.entries(info.detalhes)) strDetalhes += `<span style="display:inline-block; background:#e9ecef; padding:2px 6px; border-radius:4px; font-size:11px; margin:2px;">${ass}: <strong>${qtd}</strong></span>`;
+                tbServidores.innerHTML += `<tr><td><strong>${serv}</strong></td><td><strong>${info.total}</strong></td><td>${strDetalhes}</td></tr>`;
+            }
+            if (somaServidores === 0) tbServidores.innerHTML = `<tr><td colspan="3" style="text-align:center;">Sem dados no período</td></tr>`;
         }
-        if (somaServidores === 0) tbServidores.innerHTML = `<tr><td colspan="3" style="text-align:center;">Sem dados no período</td></tr>`;
     }
 
     // ================= ROTINAS DE AUSÊNCIAS E CALENDÁRIO =================
