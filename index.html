@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Sistema de Distribuição</title>
-    <!-- Bibliotecas Externas -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         body { font-family: Arial, sans-serif; background-color: #e9ecef; padding: 20px; margin: 0; }
-        .container { max-width: 1000px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: auto; }
+        .container { max-width: 1100px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: auto; }
         
         #login-container { max-width: 400px; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: 100px auto; text-align: center; }
         #login-container h2 { margin-top: 0; color: #0056b3; }
@@ -45,13 +44,19 @@
         
         .badge-ferias { background-color: #dc3545; color: white; padding: 3px 6px; border-radius: 4px; }
         .badge-recesso { background-color: #ffc107; color: black; padding: 3px 6px; border-radius: 4px; }
+        .badge-mutirao { background-color: #6f42c1; color: white; padding: 3px 6px; border-radius: 4px; } 
         .badge-transferido { display: inline-block; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 3px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px; font-weight: bold; }
 
         #calendario { max-height: 500px; font-size: 14px; }
         #modalTransferencia { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
         .modal-box { background: white; padding: 25px; border-radius: 8px; width: 350px; text-align: center; }
+        
         .filtro-box { display: flex; gap: 15px; background: #f1f3f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; align-items: flex-end; flex-wrap: wrap; }
         .chart-container { background: white; padding: 15px; border-radius: 8px; border: 1px solid #ddd; flex: 1; min-width: 300px; }
+        
+        .separador-grupo { border-bottom: 3px solid; padding-bottom: 5px; margin-top: 40px; margin-bottom: 20px; }
+        .cor-estudos { border-color: #0056b3; color: #0056b3; }
+        .cor-fiscais { border-color: #28a745; color: #28a745; }
     </style>
 </head>
 <body onload="verificarLogin()">
@@ -98,7 +103,7 @@
                             <option value="ITBI incorporação">ITBI incorporação</option>
                             <option value="Imunidades e isenções">Imunidades e isenções</option>
                             <option value="Decadência">Decadência</option>
-                            <option value="ISS Construção">ISS Construção (Fila Especial)</option>
+                            <option value="ISS Construção">ISS Construção</option>
                             <option value="Pareceres Diversos">Pareceres Diversos</option>
                         </optgroup>
                     </select>
@@ -126,7 +131,7 @@
                             <optgroup label="Processos Fiscais"><option value="Wagner">Wagner</option><option value="Neuma">Neuma</option><option value="Maria">Maria</option><option value="Viviene">Viviene</option></optgroup>
                         </select>
                     </div>
-                    <div class="form-group"><label>Tipo:</label><select id="tipoAusencia" required><option value="">Selecione...</option><option value="Férias">Férias</option><option value="Recesso">Recesso (5 dias/ano)</option></select></div>
+                    <div class="form-group"><label>Tipo:</label><select id="tipoAusencia" required><option value="">Selecione...</option><option value="Férias">Férias</option><option value="Recesso">Recesso Padrão (5 dias anuais)</option><option value="Recesso Mutirão">Recesso Mutirão 2025</option></select></div>
                     <div class="form-group"><label>Início:</label><input type="date" id="dataInicio" required></div>
                     <div class="form-group"><label>Fim:</label><input type="date" id="dataFim" required></div>
                     <button type="submit" class="btn-success" style="padding:10px;">Agendar</button>
@@ -138,7 +143,7 @@
         <table><thead id="theadAusencias"></thead><tbody id="tabelaAusencias"></tbody></table>
     </div>
 
-    <!-- ABA RELATÓRIOS -->
+    <!-- ABA RELATÓRIOS (APENAS ADMIN) -->
     <div id="aba-relatorios" class="tab-content">
         <h2>Painel Gerencial de Produtividade</h2>
         <div class="filtro-box">
@@ -147,22 +152,37 @@
             <div><button onclick="gerarRelatorios()" class="btn-success" style="padding: 10px 20px;">Filtrar</button></div>
             <div><button onclick="limparFiltroRelatorios()" class="btn-cancel" style="padding: 10px 20px;">Limpar</button></div>
         </div>
-        
+
+        <!-- RELATÓRIO: ESTUDOS TRIBUTÁRIOS -->
+        <h3 class="separador-grupo cor-estudos">📘 Estudos Tributários</h3>
         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-            <!-- GRÁFICO 1: ASSUNTOS (Visível para todos) -->
             <div class="chart-container">
-                <h3 style="text-align: center; margin-top: 0;">Processos por Assunto</h3>
-                <canvas id="graficoAssuntos" style="max-height: 250px;"></canvas>
-                <table style="margin-top: 20px;"><thead><tr><th>Assunto</th><th>Total</th></tr></thead><tbody id="tabelaRelAssuntos"></tbody></table>
+                <h4 style="text-align: center; margin-top: 0;">Processos por Assunto</h4>
+                <canvas id="graficoAssuntosEstudos" style="max-height: 220px;"></canvas>
+                <table style="margin-top: 15px;"><thead><tr><th>Assunto</th><th>Total</th></tr></thead><tbody id="tabelaRelAssuntosEstudos"></tbody></table>
             </div>
-            
-            <!-- GRÁFICO 2: SERVIDORES (Oculto para usuários comuns) -->
-            <div id="blocoRelatorioServidores" class="chart-container">
-                <h3 style="text-align: center; margin-top: 0;">Processos por Servidor</h3>
-                <canvas id="graficoServidores" style="max-height: 250px;"></canvas>
-                <table style="margin-top: 20px;"><thead><tr><th>Servidor</th><th>Total</th><th>Detalhamento</th></tr></thead><tbody id="tabelaRelServidores"></tbody></table>
+            <div class="chart-container">
+                <h4 style="text-align: center; margin-top: 0;">Processos por Servidor</h4>
+                <canvas id="graficoServidoresEstudos" style="max-height: 220px;"></canvas>
+                <table style="margin-top: 15px;"><thead><tr><th>Servidor</th><th>Total</th><th>Detalhamento</th></tr></thead><tbody id="tabelaRelServidoresEstudos"></tbody></table>
             </div>
         </div>
+
+        <!-- RELATÓRIO: PROCESSOS FISCAIS -->
+        <h3 class="separador-grupo cor-fiscais">📗 Processos Fiscais</h3>
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+            <div class="chart-container">
+                <h4 style="text-align: center; margin-top: 0;">Processos por Assunto</h4>
+                <canvas id="graficoAssuntosFiscais" style="max-height: 220px;"></canvas>
+                <table style="margin-top: 15px;"><thead><tr><th>Assunto</th><th>Total</th></tr></thead><tbody id="tabelaRelAssuntosFiscais"></tbody></table>
+            </div>
+            <div class="chart-container">
+                <h4 style="text-align: center; margin-top: 0;">Processos por Servidor</h4>
+                <canvas id="graficoServidoresFiscais" style="max-height: 220px;"></canvas>
+                <table style="margin-top: 15px;"><thead><tr><th>Servidor</th><th>Total</th><th>Detalhamento</th></tr></thead><tbody id="tabelaRelServidoresFiscais"></tbody></table>
+            </div>
+        </div>
+
     </div>
 </div>
 
@@ -182,7 +202,13 @@
 </div>
 
 <script>
-    let calendar = null, historicoLocal =[], chartObjAssuntos = null, chartObjServidores = null;
+    let calendar = null, historicoLocal =[];
+    
+    // Arrays para guardar as instâncias dos gráficos
+    let charts = {
+        assuntosEstudos: null, servidoresEstudos: null,
+        assuntosFiscais: null, servidoresFiscais: null
+    };
 
     async function apiCall(action, payload = {}) {
         payload.token = localStorage.getItem('appToken'); 
@@ -211,19 +237,19 @@
         }
     }
 
-    // Função que aplica a segurança visual dependendo de quem logou
     function aplicarPermissoesUI() {
         const role = localStorage.getItem('appRole');
         const badge = document.getElementById('badgeRole');
+        const btnRelatorios = document.getElementById('btnTabRelatorios');
         
         if (role === 'admin') {
             badge.innerText = "⭐ Administrador"; badge.style.background = "#28a745";
             document.getElementById('blocoFormAgendamento').style.display = "block";
-            document.getElementById('blocoRelatorioServidores').style.display = "block"; // Visível para Admin
+            btnRelatorios.style.display = "inline-block"; // Aba visível
         } else {
             badge.innerText = "📝 Distribuidor"; badge.style.background = "#17a2b8";
             document.getElementById('blocoFormAgendamento').style.display = "none";
-            document.getElementById('blocoRelatorioServidores').style.display = "none"; // Oculto para Equipe
+            btnRelatorios.style.display = "none"; // Aba some para equipe comum
         }
         document.getElementById('blocoFormDistribuicao').style.display = "block";
     }
@@ -284,18 +310,8 @@
 
     function prepararEdicao(id) {
         const p = historicoLocal.find(x => x.id === id); if (!p) return;
-        document.getElementById('tituloFormulario').innerText = "Corrigir Processo"; 
-        document.getElementById('processoIdEdit').value = p.id; 
-        document.getElementById('numeroProcesso').value = p.numero; 
-        document.getElementById('dataHoraEntrada').value = p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora; 
-        document.getElementById('assunto').value = p.assunto; 
-        document.getElementById('btnSubmit').innerText = "Salvar Correção"; 
-        document.getElementById('btnSubmit').classList.replace('btn-success', 'btn-edit'); 
-        document.getElementById('btnCancelarEdicao').style.display = "inline-block"; 
-        document.getElementById('mensagemResultado').style.display = "none"; 
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.getElementById('tituloFormulario').innerText = "Corrigir Processo"; document.getElementById('processoIdEdit').value = p.id; document.getElementById('numeroProcesso').value = p.numero; document.getElementById('dataHoraEntrada').value = p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora; document.getElementById('assunto').value = p.assunto; document.getElementById('btnSubmit').innerText = "Salvar Correção"; document.getElementById('btnSubmit').classList.replace('btn-success', 'btn-edit'); document.getElementById('btnCancelarEdicao').style.display = "inline-block"; document.getElementById('mensagemResultado').style.display = "none"; window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    
     function cancelarEdicao() { document.getElementById('tituloFormulario').innerText = "Distribuir Novo Processo"; document.getElementById('processoIdEdit').value = ""; document.getElementById('formProcesso').reset(); document.getElementById('btnSubmit').innerText = "Distribuir Processo"; document.getElementById('btnSubmit').classList.replace('btn-edit', 'btn-success'); document.getElementById('btnCancelarEdicao').style.display = "none"; }
     function abrirModalTransferencia(id) { const p = historicoLocal.find(x => x.id === id); if(!p) return; document.getElementById('transferirProcessoId').value = p.id; document.getElementById('lblTransferirNum').innerText = p.numero; document.getElementById('novoServidorTransferencia').value = p.servidor; document.getElementById('modalTransferencia').style.display = "flex"; }
     function fecharModalTransferencia() { document.getElementById('modalTransferencia').style.display = "none"; }
@@ -309,54 +325,61 @@
     function limparFiltroRelatorios() { document.getElementById('filtroDataInicio').value = ""; document.getElementById('filtroDataFim').value = ""; gerarRelatorios(); }
     
     function gerarRelatorios() {
+        if (localStorage.getItem('appRole') !== 'admin') return; // Se não for admin, nem calcula
+
         const dataInicio = document.getElementById('filtroDataInicio').value;
         const dataFim = document.getElementById('filtroDataFim').value;
         
         let dadosFiltrados = historicoLocal;
-        
         if (dataInicio) dadosFiltrados = dadosFiltrados.filter(p => (p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora) >= dataInicio);
         if (dataFim) dadosFiltrados = dadosFiltrados.filter(p => (p.dataHora.includes('T') ? p.dataHora.split('T')[0] : p.dataHora) <= dataFim);
         
-        const contagemAssuntos = {}, contagemServidores = {};
+        const contagemEstudos = { assuntos: {}, servidores: {} };
+        const contagemFiscais = { assuntos: {}, servidores: {} };
+
         dadosFiltrados.forEach(p => {
+            let isEstudos = p.grupo === "Estudos Tributários";
+            let contagem = isEstudos ? contagemEstudos : contagemFiscais;
             let assLimpo = p.assunto.replace(" - Estudos", "").replace(" - Fiscais", "");
-            contagemAssuntos[assLimpo] = (contagemAssuntos[assLimpo] || 0) + 1;
-            if (!contagemServidores[p.servidor]) contagemServidores[p.servidor] = { total: 0, detalhes: {} };
-            contagemServidores[p.servidor].total += 1; contagemServidores[p.servidor].detalhes[assLimpo] = (contagemServidores[p.servidor].detalhes[assLimpo] || 0) + 1;
+
+            contagem.assuntos[assLimpo] = (contagem.assuntos[assLimpo] || 0) + 1;
+
+            if (!contagem.servidores[p.servidor]) contagem.servidores[p.servidor] = { total: 0, detalhes: {} };
+            contagem.servidores[p.servidor].total += 1;
+            contagem.servidores[p.servidor].detalhes[assLimpo] = (contagem.servidores[p.servidor].detalhes[assLimpo] || 0) + 1;
         });
-        desenharGraficos(contagemAssuntos, contagemServidores); preencherTabelasRelatorio(contagemAssuntos, contagemServidores);
+
+        desenharGraficosGrupo('Estudos', contagemEstudos, 'graficoAssuntosEstudos', 'graficoServidoresEstudos', '#0056b3');
+        desenharGraficosGrupo('Fiscais', contagemFiscais, 'graficoAssuntosFiscais', 'graficoServidoresFiscais', '#28a745');
+
+        preencherTabelasGrupo('Estudos', contagemEstudos, 'tabelaRelAssuntosEstudos', 'tabelaRelServidoresEstudos');
+        preencherTabelasGrupo('Fiscais', contagemFiscais, 'tabelaRelAssuntosFiscais', 'tabelaRelServidoresFiscais');
     }
-    
-    function desenharGraficos(dadosAssuntos, dadosServidores) {
-        // Gráfico de Assuntos (Sempre desenha)
-        if (chartObjAssuntos) chartObjAssuntos.destroy(); 
-        chartObjAssuntos = new Chart(document.getElementById('graficoAssuntos'), { type: 'bar', data: { labels: Object.keys(dadosAssuntos), datasets:[{ label: 'Qtd de Processos', data: Object.values(dadosAssuntos), backgroundColor: '#0056b3' }] }, options: { responsive: true, maintainAspectRatio: false } });
-        
-        // Gráfico de Servidores (Só desenha se for Admin/Diretoria)
-        const isAdmin = localStorage.getItem('appRole') === 'admin';
-        if (isAdmin) {
-            if (chartObjServidores) chartObjServidores.destroy(); 
-            chartObjServidores = new Chart(document.getElementById('graficoServidores'), { type: 'bar', data: { labels: Object.keys(dadosServidores).sort(), datasets:[{ label: 'Processos Atribuídos', data: Object.keys(dadosServidores).sort().map(s => dadosServidores[s].total), backgroundColor: '#28a745' }] }, options: { responsive: true, maintainAspectRatio: false } });
-        }
+
+    function desenharGraficosGrupo(nomeGrupo, contagem, idCanvasAss, idCanvasServ, corTema) {
+        if (charts[`assuntos${nomeGrupo}`]) charts[`assuntos${nomeGrupo}`].destroy();
+        charts[`assuntos${nomeGrupo}`] = new Chart(document.getElementById(idCanvasAss), { 
+            type: 'bar', data: { labels: Object.keys(contagem.assuntos), datasets:[{ label: 'Qtd de Processos', data: Object.values(contagem.assuntos), backgroundColor: corTema }] }, options: { responsive: true, maintainAspectRatio: false } 
+        });
+
+        if (charts[`servidores${nomeGrupo}`]) charts[`servidores${nomeGrupo}`].destroy();
+        charts[`servidores${nomeGrupo}`] = new Chart(document.getElementById(idCanvasServ), { 
+            type: 'bar', data: { labels: Object.keys(contagem.servidores).sort(), datasets:[{ label: 'Processos Atribuídos', data: Object.keys(contagem.servidores).sort().map(s => contagem.servidores[s].total), backgroundColor: corTema }] }, options: { responsive: true, maintainAspectRatio: false } 
+        });
     }
-    
-    function preencherTabelasRelatorio(dadosAssuntos, dadosServidores) {
-        // Tabela Assuntos
-        const tbAssuntos = document.getElementById('tabelaRelAssuntos'); tbAssuntos.innerHTML = ""; let somaAssuntos = 0;
-        for (const[assunto, total] of Object.entries(dadosAssuntos)) { somaAssuntos += total; tbAssuntos.innerHTML += `<tr><td>${assunto}</td><td><strong>${total}</strong></td></tr>`; }
-        if (somaAssuntos === 0) tbAssuntos.innerHTML = `<tr><td colspan="2" style="text-align:center;">Sem dados no período</td></tr>`; else tbAssuntos.innerHTML += `<tr style="background:#f1f3f5;"><td><strong>TOTAL GERAL</strong></td><td><strong>${somaAssuntos}</strong></td></tr>`;
+
+    function preencherTabelasGrupo(nomeGrupo, contagem, idTabelaAss, idTabelaServ) {
+        const tbAss = document.getElementById(idTabelaAss); tbAss.innerHTML = ""; let somaAss = 0;
+        for (const[assunto, total] of Object.entries(contagem.assuntos)) { somaAss += total; tbAss.innerHTML += `<tr><td>${assunto}</td><td><strong>${total}</strong></td></tr>`; }
+        if (somaAss === 0) tbAss.innerHTML = `<tr><td colspan="2" style="text-align:center;">Sem dados no período</td></tr>`; else tbAss.innerHTML += `<tr style="background:#f1f3f5;"><td><strong>TOTAL</strong></td><td><strong>${somaAss}</strong></td></tr>`;
         
-        // Tabela Servidores
-        const isAdmin = localStorage.getItem('appRole') === 'admin';
-        if (isAdmin) {
-            const tbServidores = document.getElementById('tabelaRelServidores'); tbServidores.innerHTML = ""; let somaServidores = 0;
-            for (const serv of Object.keys(dadosServidores).sort()) {
-                const info = dadosServidores[serv]; somaServidores += info.total; let strDetalhes = "";
-                for (const[ass, qtd] of Object.entries(info.detalhes)) strDetalhes += `<span style="display:inline-block; background:#e9ecef; padding:2px 6px; border-radius:4px; font-size:11px; margin:2px;">${ass}: <strong>${qtd}</strong></span>`;
-                tbServidores.innerHTML += `<tr><td><strong>${serv}</strong></td><td><strong>${info.total}</strong></td><td>${strDetalhes}</td></tr>`;
-            }
-            if (somaServidores === 0) tbServidores.innerHTML = `<tr><td colspan="3" style="text-align:center;">Sem dados no período</td></tr>`;
+        const tbServ = document.getElementById(idTabelaServ); tbServ.innerHTML = ""; let somaServ = 0;
+        for (const serv of Object.keys(contagem.servidores).sort()) {
+            const info = contagem.servidores[serv]; somaServ += info.total; let strDetalhes = "";
+            for (const[ass, qtd] of Object.entries(info.detalhes)) strDetalhes += `<span style="display:inline-block; background:#e9ecef; padding:2px 6px; border-radius:4px; font-size:11px; margin:2px;">${ass}: <strong>${qtd}</strong></span>`;
+            tbServ.innerHTML += `<tr><td><strong>${serv}</strong></td><td><strong>${info.total}</strong></td><td>${strDetalhes}</td></tr>`;
         }
+        if (somaServ === 0) tbServ.innerHTML = `<tr><td colspan="3" style="text-align:center;">Sem dados no período</td></tr>`;
     }
 
     // ================= ROTINAS DE AUSÊNCIAS E CALENDÁRIO =================
@@ -374,13 +397,16 @@
         tbody.innerHTML = ausencias.length === 0 ? `<tr><td colspan="${cols}" style="text-align:center;">Nenhuma ausência.</td></tr>` : "";
         ausencias.sort((a,b) => a.dataInicio.localeCompare(b.dataInicio)).forEach(a => { 
             let htmlAcoes = isAdmin ? `<td><button class="btn-acao btn-delete" onclick="excluirAusencia('${a.id}')">🗑️</button></td>` : ``;
-            tbody.innerHTML += `<tr><td><strong>${a.nome}</strong></td><td>${a.grupo}</td><td><span class="${a.tipo==='Férias'?'badge-ferias':'badge-recesso'}">${a.tipo}</span></td><td>${a.dataInicio.split('-').reverse().join('/')} até ${a.dataFim.split('-').reverse().join('/')}</td>${htmlAcoes}</tr>`; 
+            let badgeClass = 'badge-recesso'; if(a.tipo === 'Férias') badgeClass = 'badge-ferias'; if(a.tipo === 'Recesso Mutirão') badgeClass = 'badge-mutirao';
+            tbody.innerHTML += `<tr><td><strong>${a.nome}</strong></td><td>${a.grupo}</td><td><span class="${badgeClass}">${a.tipo}</span></td><td>${a.dataInicio.split('-').reverse().join('/')} até ${a.dataFim.split('-').reverse().join('/')}</td>${htmlAcoes}</tr>`; 
         });
-        
         let eventos =[]; const ano = new Date().getFullYear();
         const feriados =[{title:'Ano Novo',date:`${ano}-01-01`},{title:'São José',date:`${ano}-03-19`},{title:'Tiradentes',date:`${ano}-04-21`},{title:'Trabalhador',date:`${ano}-05-01`},{title:'Aniv. Palmas',date:`${ano}-05-20`},{title:'Independência',date:`${ano}-09-07`},{title:'Padroeira TO',date:`${ano}-09-08`},{title:'Criação TO',date:`${ano}-10-05`},{title:'N.S. Aparecida',date:`${ano}-10-12`},{title:'Finados',date:`${ano}-11-02`},{title:'Proc. República',date:`${ano}-11-15`},{title:'Natal',date:`${ano}-12-25`}];
         feriados.forEach(f => eventos.push({title: f.title, start: f.date, display: 'background', color: '#ffcdd2'}));
-        ausencias.forEach(a => { let fim = new Date(a.dataFim+'T12:00:00Z'); fim.setDate(fim.getDate()+1); eventos.push({id: a.id, title:`${a.nome} (${a.tipo})`, start: a.dataInicio, end: fim.toISOString().split('T')[0], color: a.tipo==='Férias'?'#dc3545':'#ffc107', textColor: a.tipo==='Férias'?'#fff':'#000'}); });
+        ausencias.forEach(a => { let fim = new Date(a.dataFim+'T12:00:00Z'); fim.setDate(fim.getDate()+1); 
+            let corFundo = '#ffc107'; let corTexto = '#000'; if(a.tipo === 'Férias') { corFundo = '#dc3545'; corTexto = '#fff'; } if(a.tipo === 'Recesso Mutirão') { corFundo = '#6f42c1'; corTexto = '#fff'; }
+            eventos.push({id: a.id, title:`${a.nome} (${a.tipo})`, start: a.dataInicio, end: fim.toISOString().split('T')[0], color: corFundo, textColor: corTexto}); 
+        });
         if(calendar) calendar.destroy();
         calendar = new FullCalendar.Calendar(document.getElementById('calendario'), { initialView: 'dayGridMonth', locale: 'pt-br', headerToolbar: { left: 'prev,next today', center: 'title', right: '' }, events: eventos });
         calendar.render();
